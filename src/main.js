@@ -4,6 +4,7 @@ import { h } from './dom.js';
 import { ui } from './data/ui.fr.js';
 import { renderLogin } from './views/login.js';
 import { renderHome } from './views/home.js';
+import { renderQuestions } from './views/questions.js';
 import { installBanner } from './views/installBanner.js';
 
 const root = document.getElementById('app');
@@ -22,7 +23,8 @@ async function render() {
   }
   const ctx = { supabase, session: currentSession, navigate };
   try {
-    await renderHome(main, ctx, route.notice);
+    if (route.name === 'questions') await renderQuestions(main, ctx, route.categoryId);
+    else await renderHome(main, ctx, route.notice);
   } catch (err) {
     console.error(err);
     main.append(h('section', { class: 'card' }, h('p', {}, ui.errors.generic)));

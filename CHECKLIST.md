@@ -80,7 +80,7 @@ PWA jouable à distance par deux partenaires, basée sur le questionnaire du Coa
 - [x] Saisie du code du partenaire
 - [x] Demandes reçues (accepter, refuser)
 - [x] Accueil : carte des 12 catégories avec progression
-- [ ] Écran de questions avec option « Passer » sans pénalité
+- [x] Écran de questions avec option « Passer » sans pénalité
 - [ ] Salle d'attente « Ton ou ta partenaire n'a pas encore terminé »
 - [ ] Révélation côte à côte des réponses
 - [ ] Notes d'alignement 1 à 10 (écart ≥ 3 : conversation approfondie suggérée)

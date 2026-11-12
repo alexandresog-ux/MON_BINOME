@@ -64,6 +64,30 @@ export const ui = {
       both: 'Les deux ont validé · révélation à venir'
     }
   },
+  questions: {
+    backToCategories: 'Retour aux catégories',
+    notFound: 'Cette catégorie n\'existe pas.',
+    retry: 'Réessayer',
+    lockedTitle: 'Réponses verrouillées',
+    locked: 'Tu as déjà validé cette catégorie : tes réponses ne peuvent plus être modifiées.',
+    waitPartner: 'La comparaison arrive dès que ton ou ta partenaire aura validé.',
+    revealed: 'Vous avez tous les deux validé ! Les réponses arrivent.',
+    partnerDone: 'Ton ou ta partenaire a déjà validé cette catégorie.',
+    progress: (n, total) => `Question ${n} sur ${total}`,
+    answerLabel: 'Ta réponse',
+    placeholder: 'Écris ici, avec tes mots…',
+    sensitiveHint: 'Question sensible : « Passer » est possible, sans pénalité et sans justification.',
+    skippedBadge: 'Passée',
+    skip: 'Passer',
+    resume: 'Reprendre ma réponse',
+    answerLater: 'Répondre plus tard',
+    saved: 'Réponse enregistrée.',
+    saveError: 'La sauvegarde a échoué. Réessaie.',
+    prev: 'Précédent',
+    next: 'Suivant',
+    validate: 'Valider la catégorie',
+    validateHint: 'Après validation, tes réponses sont verrouillées.'
+  },
   install: {
     android: 'Installe l\'application sur ton téléphone.',
     button: 'Installer',
