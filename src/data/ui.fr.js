@@ -51,6 +51,19 @@ export const ui = {
     declined: 'Demande refusée.',
     linked: 'C\'est lié ! Vous pouvez commencer le questionnaire ensemble.'
   },
+  categories: {
+    title: 'Vos 12 catégories',
+    intro: 'Réponds chacun de ton côté. La comparaison des réponses vient une fois que vous avez tous les deux validé une catégorie.',
+    retry: 'Réessayer',
+    openLabel: (title) => `Ouvrir la catégorie : ${title}`,
+    status: {
+      todo: 'À commencer',
+      progress: (n, total) => `${n} sur ${total} réponses enregistrées`,
+      waiting: 'En attente de ton ou ta partenaire',
+      partnerDone: 'Ton ou ta partenaire a déjà terminé : à toi de jouer !',
+      both: 'Les deux ont validé · révélation à venir'
+    }
+  },
   install: {
     android: 'Installe l\'application sur ton téléphone.',
     button: 'Installer',

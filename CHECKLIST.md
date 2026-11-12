@@ -79,7 +79,7 @@ PWA jouable à distance par deux partenaires, basée sur le questionnaire du Coa
 - [ ] Mon code de contact (copier, partager, régénérer)
 - [x] Saisie du code du partenaire
 - [x] Demandes reçues (accepter, refuser)
-- [ ] Accueil : carte des 12 catégories avec progression
+- [x] Accueil : carte des 12 catégories avec progression
 - [ ] Écran de questions avec option « Passer » sans pénalité
 - [ ] Salle d'attente « Ton ou ta partenaire n'a pas encore terminé »
 - [ ] Révélation côte à côte des réponses

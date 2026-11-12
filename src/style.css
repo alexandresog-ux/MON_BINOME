@@ -47,3 +47,10 @@ input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); ou
 .install[hidden] { display: none; }
 .warn { border-left: 4px solid var(--accent); }
 .request { margin-bottom: .75rem; }
+.category { display: block; width: 100%; text-align: left; font: inherit; color: inherit; }
+.category.clickable { cursor: pointer; }
+.category-title { display: block; font-weight: 700; font-size: 1.05rem; }
+.category-sub { display: block; font-size: .9rem; margin-top: .25rem; }
+.category-status { display: block; margin-top: .6rem; font-size: .9rem; font-weight: 600; color: var(--brand); }
+.bar { height: .5rem; background: var(--line); border-radius: 999rem; overflow: hidden; margin-top: .6rem; }
+.bar > span { display: block; height: 100%; background: var(--brand); }
