@@ -1,0 +1,255 @@
+{
+  "version": 1,
+  "lang": "fr",
+  "common": {
+    "title": "Construire une vie à deux",
+    "subtitle": "Questionnaire pour couples",
+    "tagline": "Clarifiez vos valeurs, comparez vos visions et bâtissez un projet commun avec la méthode SMART.",
+    "author": "Coach Alexandre Sognon · SOG Digital Studio · Cotonou, Bénin",
+    "how_to": [
+      "Répondez chacun de votre côté, avec sincérité. Il n'y a pas de bonne réponse, seulement la vôtre.",
+      "Comparez vos réponses catégorie par catégorie, dans un moment calme et sans interruption.",
+      "Écoutez pour comprendre, pas pour convaincre. Une différence n'est pas une faute, c'est une information.",
+      "Transformez vos échanges en un objectif commun grâce à la méthode SMART, un objectif par catégorie."
+    ],
+    "golden_rules": [
+      "Parlez avec « je » plutôt qu'avec « tu » (« je ressens… » plutôt que « tu es… »).",
+      "Aucune réponse ne doit être utilisée plus tard comme une arme.",
+      "Une catégorie à la fois : une par soirée ou une par semaine suffit.",
+      "Si un sujet est trop sensible, faites une pause, puis reprenez."
+    ],
+    "good_to_know": [
+      "Les différences ne sont pas forcément un problème. Les vraies alertes sont les désaccords sur les points non négociables (foi, enfants, argent, lieu de vie, fidélité, respect).",
+      "Ce questionnaire ne remplace ni le temps passé ensemble, ni l'avis de vos familles ou de vos guides, ni l'accompagnement d'un professionnel (conseiller conjugal, psychologue, chef religieux) si vous en ressentez le besoin."
+    ],
+    "safety_warning": "En cas de violence, de contrôle ou de peur dans la relation, ne passez pas par ce questionnaire : demandez de l'aide à un professionnel ou à une personne de confiance.",
+    "alignment": {
+      "label": "À quel point te sens-tu aligné(e) avec ton ou ta partenaire sur ce thème ? (1 à 10)",
+      "min": 1,
+      "max": 10,
+      "deep_talk_gap": 3,
+      "deep_talk_message": "Un écart de 3 points ou plus mérite une conversation approfondie."
+    },
+    "smart": {
+      "S": { "name": "Spécifique", "prompt": "Quel changement ou projet précis voulons-nous ensemble ?" },
+      "M": { "name": "Mesurable", "prompt": "Quel indicateur prouvera que nous avançons (chiffre, fréquence, comportement observable) ?" },
+      "A": { "name": "Atteignable", "prompt": "De quelles ressources avons-nous besoin, et quel premier pas pouvons-nous faire cette semaine ?" },
+      "R": { "name": "Réaliste / pertinent", "prompt": "Cet objectif correspond-il aux valeurs et aux besoins des deux, et pas seulement d'un seul ?" },
+      "T": { "name": "Temporel", "prompt": "À quelle date fait-on le point ensemble ?" }
+    },
+    "final_review": {
+      "top_agreements": "Nos 3 plus grands points d'accord",
+      "topics_to_explore": "Nos 3 sujets à approfondir",
+      "shared_non_negotiables": "Nos points non négociables communs",
+      "disputed_non_negotiables": "Nos points non négociables en désaccord (à traiter avec sérieux)",
+      "next_review_date": "Notre prochaine rencontre de bilan (date)"
+    },
+    "final_advice": "Un couple solide n'est pas un couple sans différences, c'est un couple qui sait en parler, les comprendre et construire malgré elles. Avancez une catégorie à la fois, mesurez vos progrès, ajustez, et gardez toujours le cap sur la vision que vous avez écrite ensemble."
+  },
+  "categories": [
+    {
+      "id": 1,
+      "slug": "identite-valeurs",
+      "title": "Identité et valeurs",
+      "subtitle": "Qui je suis, ce qui compte vraiment pour moi, et ce que mon ou ma partenaire doit savoir de moi.",
+      "smart_prompt": "Quelle valeur partagée voulons-nous mieux vivre au quotidien, avec quels indicateurs et quelle date de bilan ?",
+      "questions": [
+        { "id": "c01q01", "text": "Si tu devais te décrire en trois mots, sans te soucier du regard des autres, quels seraient-ils ?" },
+        { "id": "c01q02", "text": "Quelles sont tes cinq valeurs les plus importantes (honnêteté, fidélité, liberté, famille, foi, respect, ambition, justice…) ? Classe-les." },
+        { "id": "c01q03", "text": "Quand as-tu ressenti le plus de fierté dans ta vie, et quelle valeur était alors honorée ?" },
+        { "id": "c01q04", "text": "Quelle situation t'a déjà mis en colère ou t'a indigné(e), et quelle valeur était bafouée ?" },
+        { "id": "c01q05", "text": "Quelles qualités les personnes proches te reconnaissent-elles le plus souvent ?" },
+        { "id": "c01q06", "text": "Quels défauts reconnais-tu en toi, et lesquels pourraient peser sur une vie de couple ?" },
+        { "id": "c01q07", "text": "Quelles croyances limitantes as-tu héritées de ton enfance, de ta culture ou de ton entourage ?" },
+        { "id": "c01q08", "text": "Qu'est-ce que ton ou ta partenaire doit absolument savoir de toi pour te comprendre vraiment ?" }
+      ]
+    },
+    {
+      "id": 2,
+      "slug": "vision-vie-reussie",
+      "title": "Vision d'une vie réussie",
+      "subtitle": "Ma définition personnelle du succès, et notre vision commune.",
+      "smart_prompt": "Quelle vision de vie à deux pouvons-nous écrire en une phrase, avec quelles étapes à 1 an, 3 ans et 5 ans ?",
+      "questions": [
+        { "id": "c02q01", "text": "Si ta vie était parfaite dans 10 ans, à quoi ressemblerait une journée ordinaire ?" },
+        { "id": "c02q02", "text": "Que signifie « réussir sa vie » pour toi, indépendamment de la société et de ta famille ?" },
+        { "id": "c02q03", "text": "Quels sont les 5 accomplissements que tu veux absolument vivre avant ta mort ?" },
+        { "id": "c02q04", "text": "Quel niveau de revenus, de temps libre et de liberté te faut-il pour te sentir comblé(e) ?" },
+        { "id": "c02q05", "text": "Quelle réussite imposée par les autres ne t'intéresse pas vraiment ?" },
+        { "id": "c02q06", "text": "Quel couple ou quelle famille t'inspire, et que reprendrais-tu ou refuserais-tu de leur modèle ?" },
+        { "id": "c02q07", "text": "Si l'argent et le regard des autres ne comptaient pas, que ferais-tu de ta vie ?" },
+        { "id": "c02q08", "text": "Quelle place ton ou ta partenaire occupe-t-il/elle dans cette vision ? Quelle place occupes-tu dans la sienne ?" }
+      ]
+    },
+    {
+      "id": 3,
+      "slug": "parcours",
+      "title": "Parcours",
+      "subtitle": "D'où je viens, où j'en suis, où je veux aller.",
+      "smart_prompt": "Quelle étape de parcours voulons-nous franchir ensemble en priorité, et à quelle date ?",
+      "questions": [
+        { "id": "c03q01", "text": "D'où viens-tu (famille, culture, milieu, enfance) ? Qu'est-ce que cela a façonné en toi ?" },
+        { "id": "c03q02", "text": "Quels ont été les 5 événements qui ont le plus changé ta vie ?" },
+        { "id": "c03q03", "text": "Quelles leçons les échecs et les épreuves t'ont-ils apprises ?" },
+        { "id": "c03q04", "text": "Quelles relations passées ont influencé ta façon d'aimer, en bien ou en mal ?", "sensitive": true },
+        { "id": "c03q05", "text": "Quelles décisions passées referais-tu différemment ?" },
+        { "id": "c03q06", "text": "Y a-t-il des éléments de ton passé (dettes, ruptures, enfants, santé, secrets) que ton ou ta partenaire doit connaître avant de s'engager ?", "sensitive": true },
+        { "id": "c03q07", "text": "Où veux-tu être dans 1 an, 5 ans, 10 ans ?" },
+        { "id": "c03q08", "text": "Comment ton parcours et celui de ton ou ta partenaire peuvent-ils se compléter ?" }
+      ]
+    },
+    {
+      "id": 4,
+      "slug": "paix-interieure-equilibre",
+      "title": "Paix intérieure et équilibre",
+      "subtitle": "Ce que « être en paix » signifie pour moi, et pour nous.",
+      "smart_prompt": "Quelle habitude de paix installons-nous ensemble, avec quelle fréquence, et quand faisons-nous le bilan ?",
+      "questions": [
+        { "id": "c04q01", "text": "Que signifie « être en paix » pour toi, concrètement ?" },
+        { "id": "c04q02", "text": "Dans quels moments te sens-tu le plus serein(e) ? Quels lieux, personnes ou activités y contribuent ?" },
+        { "id": "c04q03", "text": "Qu'est-ce qui te prive de paix aujourd'hui (stress, dettes, conflits, culpabilité, comparaison) ?" },
+        { "id": "c04q04", "text": "Y a-t-il quelqu'un ou quelque chose à qui tu dois pardonner, y compris toi-même ?" },
+        { "id": "c04q05", "text": "Comment réagis-tu quand tu es stressé(e) ou blessé(e) ? De quoi as-tu besoin à ce moment-là ?" },
+        { "id": "c04q06", "text": "Comment répartis-tu ton temps entre travail, couple, famille, repos, foi et loisirs ?" },
+        { "id": "c04q07", "text": "De quoi as-tu besoin de dire non pour protéger ta paix ?" },
+        { "id": "c04q08", "text": "Quelle routine à deux (matin, soir, hebdomadaire) nous aiderait à vivre plus sereinement ?" }
+      ]
+    },
+    {
+      "id": 5,
+      "slug": "carriere-finances",
+      "title": "Carrière et finances",
+      "subtitle": "Ambitions, argent, et gestion des ressources à deux.",
+      "smart_prompt": "Quel objectif financier commun (épargne, remboursement de dette, projet) fixons-nous, avec quel montant et quelle échéance ?",
+      "questions": [
+        { "id": "c05q01", "text": "Quel métier ou quelle activité te donne de l'énergie plutôt que de t'en prendre ?" },
+        { "id": "c05q02", "text": "Quel revenu mensuel te faut-il pour couvrir tes besoins, puis pour vivre confortablement ?" },
+        { "id": "c05q03", "text": "Quelle est ta situation financière réelle aujourd'hui (revenus, dépenses, dettes, épargne) ? La partages-tu avec ton ou ta partenaire ?", "sensitive": true },
+        { "id": "c05q04", "text": "Quel est ton rapport à l'argent (sécurité, liberté, statut, peur) ? D'où vient-il ?" },
+        { "id": "c05q05", "text": "Comment imagines-tu la gestion de l'argent à deux : compte commun, comptes séparés, répartition des dépenses ?" },
+        { "id": "c05q06", "text": "Quelle part de vos revenus consacrer à l'aide aux familles, à l'épargne, aux projets et aux loisirs ?" },
+        { "id": "c05q07", "text": "Les ambitions professionnelles de chacun sont-elles compatibles (horaires, déménagement, voyages, entrepreneuriat) ?" },
+        { "id": "c05q08", "text": "Quelle serait pour nous la preuve d'une sécurité financière atteinte ?" }
+      ]
+    },
+    {
+      "id": 6,
+      "slug": "famille-belle-famille-entourage",
+      "title": "Famille, belle-famille et entourage",
+      "subtitle": "La place des autres dans notre couple.",
+      "smart_prompt": "Quelle règle ou quelle habitude fixons-nous pour protéger notre couple tout en honorant nos familles ?",
+      "questions": [
+        { "id": "c06q01", "text": "Quelles sont les 5 personnes les plus importantes dans ta vie ? Leur consacres-tu assez de temps ?" },
+        { "id": "c06q02", "text": "Comment décrirais-tu ta relation avec ta famille ? Quelles blessures ou quelles traditions en sont issues ?" },
+        { "id": "c06q03", "text": "Quelle place la belle-famille doit-elle avoir dans notre vie (visites, conseils, aide financière, décisions) ?" },
+        { "id": "c06q04", "text": "Comment gérer un désaccord entre ton ou ta partenaire et ta famille ?" },
+        { "id": "c06q05", "text": "Quelles traditions culturelles ou familiales veux-tu conserver, et lesquelles veux-tu transformer ?" },
+        { "id": "c06q06", "text": "Quelles amitiés te nourrissent, et lesquelles te vident ? Comment ton ou ta partenaire s'y intègre-t-il/elle ?" },
+        { "id": "c06q07", "text": "Quelle conversation difficile dois-tu avoir avec un proche avant de t'engager pleinement ?" },
+        { "id": "c06q08", "text": "Quel héritage relationnel voulons-nous laisser à ceux qui nous aiment ?" }
+      ]
+    },
+    {
+      "id": 7,
+      "slug": "sante-physique-mentale",
+      "title": "Santé physique et mentale",
+      "subtitle": "Énergie, habitudes et bien-être, individuel et commun.",
+      "smart_prompt": "Quelle habitude de santé adoptons-nous ensemble, avec quel indicateur et quelle date de contrôle ?",
+      "questions": [
+        { "id": "c07q01", "text": "Comment évalues-tu ta santé physique de 1 à 10 ? Qu'est-ce qui la détermine ?" },
+        { "id": "c07q02", "text": "Comment dors-tu, manges-tu, bouges-tu ? Quelles habitudes te nuisent ?" },
+        { "id": "c07q03", "text": "Quelles dépendances (téléphone, alcool, tabac, jeux, pornographie, sucre, travail) te freinent ?", "sensitive": true },
+        { "id": "c07q04", "text": "Comment va ta santé mentale (anxiété, tristesse, motivation, estime de soi) ? En parles-tu ?", "sensitive": true },
+        { "id": "c07q05", "text": "Existe-t-il des problèmes de santé (maladies, antécédents familiaux, fertilité) que ton ou ta partenaire doit connaître ?", "sensitive": true },
+        { "id": "c07q06", "text": "À quand remonte ton dernier bilan de santé complet ?" },
+        { "id": "c07q07", "text": "Comment pouvons-nous nous soutenir mutuellement dans une maladie ou une période difficile ?" },
+        { "id": "c07q08", "text": "Quelle activité physique ou quelle habitude saine pourrions-nous pratiquer ensemble ?" }
+      ]
+    },
+    {
+      "id": 8,
+      "slug": "spiritualite-croyances-sens",
+      "title": "Spiritualité, croyances et sens",
+      "subtitle": "Foi, convictions, mission et héritage.",
+      "smart_prompt": "Quelle pratique ou quelle action de sens menons-nous ensemble, avec quelle régularité ?",
+      "questions": [
+        { "id": "c08q01", "text": "Quelles sont tes croyances profondes (religion, foi, philosophie, athéisme) ? Les vis-tu vraiment ?" },
+        { "id": "c08q02", "text": "Quelle place la spiritualité doit-elle occuper dans notre couple (pratique, prière, lieu de culte, fêtes) ?" },
+        { "id": "c08q03", "text": "Comment envisages-tu la transmission de la foi ou des valeurs à nos enfants ?" },
+        { "id": "c08q04", "text": "Quelles différences de croyances sommes-nous capables de respecter, et lesquelles seraient impossibles à vivre ?" },
+        { "id": "c08q05", "text": "Quelle est ta mission de vie, ce pour quoi tu penses être sur terre ?" },
+        { "id": "c08q06", "text": "Quel impact positif veux-tu avoir sur ta communauté ou sur le monde ?" },
+        { "id": "c08q07", "text": "Quelle trace voulons-nous laisser après nous ?" },
+        { "id": "c08q08", "text": "Que voudrais-tu qu'on dise de nous deux à la fin de notre vie ?" }
+      ]
+    },
+    {
+      "id": 9,
+      "slug": "obstacles-peurs",
+      "title": "Obstacles et peurs",
+      "subtitle": "Ce qui nous freine, individuellement et en couple.",
+      "smart_prompt": "Quelle peur ou quel obstacle affrontons-nous en premier, avec quelle action concrète et quelle date limite ?",
+      "questions": [
+        { "id": "c09q01", "text": "Quelles sont tes 3 plus grandes peurs (abandon, trahison, échec, pauvreté, perte de liberté, engagement) ?" },
+        { "id": "c09q02", "text": "Quelles blessures du passé risquent de se réveiller dans notre relation ?", "sensitive": true },
+        { "id": "c09q03", "text": "Quels comportements d'auto-sabotage reconnais-tu en toi (fuite, colère, silence, jalousie, contrôle) ?" },
+        { "id": "c09q04", "text": "De quoi as-tu peur dans l'engagement ou dans le mariage ?" },
+        { "id": "c09q05", "text": "Qu'est-ce qui t'empêche d'être pleinement honnête avec ton ou ta partenaire ?" },
+        { "id": "c09q06", "text": "Quelles personnes, habitudes ou environnements menacent notre couple ?" },
+        { "id": "c09q07", "text": "Quel est le pire scénario réaliste pour nous, et comment le préviendrions-nous ?" },
+        { "id": "c09q08", "text": "Quel serait le coût, pour nous, de ne rien changer ?" }
+      ]
+    },
+    {
+      "id": 10,
+      "slug": "passions-talents",
+      "title": "Passions et talents",
+      "subtitle": "Ce qui nous rend vivants.",
+      "smart_prompt": "Quel projet ou quelle passion développons-nous, avec quel temps hebdomadaire et quelles échéances à 30, 90 et 365 jours ?",
+      "questions": [
+        { "id": "c10q01", "text": "Quelles activités te font perdre la notion du temps ?" },
+        { "id": "c10q02", "text": "Qu'aimais-tu faire enfant, avant que les attentes des autres ne s'imposent ?" },
+        { "id": "c10q03", "text": "Quelles sont tes 5 forces naturelles et tes 5 compétences acquises ?" },
+        { "id": "c10q04", "text": "Quels talents de ton ou ta partenaire admires-tu le plus ?" },
+        { "id": "c10q05", "text": "Quelle passion personnelle as-tu besoin de préserver, même en couple ?" },
+        { "id": "c10q06", "text": "Quelles passions pouvons-nous partager ?" },
+        { "id": "c10q07", "text": "Comment pouvons-nous nous aider mutuellement à développer nos talents ?" },
+        { "id": "c10q08", "text": "Quel projet créatif ou utile pourrions-nous bâtir ensemble ?" }
+      ]
+    },
+    {
+      "id": 11,
+      "slug": "engagement-vie-a-deux",
+      "title": "Engagement et vie à deux",
+      "subtitle": "Le cœur du projet de couple.",
+      "smart_prompt": "Quelles 3 décisions majeures de notre vie à deux devons-nous clarifier, et avant quelle date ?",
+      "questions": [
+        { "id": "c11q01", "text": "Que signifie pour toi s'engager (mariage, union, vie commune) ? Qu'est-ce que cela change concrètement ?" },
+        { "id": "c11q02", "text": "Quel rôle attends-tu de ton ou ta partenaire dans le foyer, et quel rôle veux-tu jouer ?" },
+        { "id": "c11q03", "text": "Comment envisages-tu le partage des tâches domestiques, des décisions et des responsabilités ?" },
+        { "id": "c11q04", "text": "Veux-tu des enfants ? Combien, quand, et comment les éduquer ? Que ferions-nous en cas de désaccord ou de difficulté à en avoir ?" },
+        { "id": "c11q05", "text": "Où veux-tu vivre dans 5 et 10 ans ? Es-tu prêt(e) à déménager pour un projet commun ?" },
+        { "id": "c11q06", "text": "Comment imagines-tu l'équilibre entre le temps à deux, le temps individuel et le temps avec les autres ?" },
+        { "id": "c11q07", "text": "Quelles sont tes limites non négociables dans le couple (fidélité, respect, honnêteté, intimité, violence, secrets) ?" },
+        { "id": "c11q08", "text": "Qu'est-ce qui te fait dire aujourd'hui que cette personne est la bonne, ou qu'il te reste des doutes ?" }
+      ]
+    },
+    {
+      "id": 12,
+      "slug": "communication-intimite-conflits",
+      "title": "Communication, intimité et conflits",
+      "subtitle": "La qualité du lien au quotidien.",
+      "smart_prompt": "Quelle règle de communication adoptons-nous (rendez-vous hebdomadaire, charte de dispute, signal de pause), avec quel suivi ?",
+      "questions": [
+        { "id": "c12q01", "text": "Comment exprimes-tu ton affection ? Comment aimes-tu en recevoir (paroles, temps, gestes, cadeaux, contact physique) ?" },
+        { "id": "c12q02", "text": "Comment réagis-tu pendant un conflit : tu parles, tu t'énerves, tu te tais, tu fuis ?" },
+        { "id": "c12q03", "text": "Quelles phrases ou quels comportements te blessent le plus ? Lesquels risques-tu d'utiliser toi-même ?" },
+        { "id": "c12q04", "text": "Comment voudrais-tu qu'on se réconcilie après une dispute ?" },
+        { "id": "c12q05", "text": "Comment gérer les secrets, la jalousie, les réseaux sociaux et la vie privée ?" },
+        { "id": "c12q06", "text": "Quelle place l'intimité physique et émotionnelle doit-elle avoir ? Qu'est-ce qui te met à l'aise ou non ?", "sensitive": true },
+        { "id": "c12q07", "text": "À quelle fréquence avons-nous besoin de faire le point sur notre relation ?" },
+        { "id": "c12q08", "text": "Dans quelles situations accepterions-nous de demander l'aide d'un tiers (conseiller, aîné, chef religieux, psychologue) ?" }
+      ]
+    }
+  ]
+}
