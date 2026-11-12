@@ -1,11 +1,39 @@
 import { h } from '../dom.js';
 import { ui, errorMessage } from '../data/ui.fr.js';
+import content from '../data/questions.fr.json';
+import { renderPairing } from './pairing.js';
 
-// Écran d'accueil provisoire : prouve que l'auth, la RLS et les RPC fonctionnent.
-// TODO(OpenCode) : remplacer par la carte des 12 catégories (voir CHECKLIST.md, 2.2).
-export async function renderHome(root, { supabase, session }) {
+// Accueil : appairage tant qu'aucun partenaire n'est lié, sinon le jeu.
+export async function renderHome(root, ctx, notice) {
+  const { supabase, session } = ctx;
   const t = ui.home;
-  const title = h('h1', {}, t.title);
+
+  // ⚠️ Toujours lister les colonnes de profiles (contact_code n'est pas lisible).
+  const [profile, member] = await Promise.all([
+    supabase.from('profiles').select('id, display_name').eq('id', session.user.id).maybeSingle(),
+    supabase.from('couple_members').select('couple_id').eq('user_id', session.user.id).maybeSingle()
+  ]);
+  const displayName = profile.data?.display_name ?? '';
+
+  if (notice) root.append(h('p', { class: 'msg', role: 'status' }, notice));
+
+  if (!member.data?.couple_id) await renderPairing(root, ctx, { displayName });
+  else renderCode(root, ctx, displayName);
+
+  // Avertissement de sécurité toujours visible sur l'accueil.
+  root.append(
+    h('section', { class: 'card warn' }, h('p', {}, content.common.safety_warning)),
+    h('p', { class: 'center' },
+      h('button', { class: 'link', type: 'button', onclick: () => supabase.auth.signOut() }, t.logout))
+  );
+}
+
+// Écran provisoire une fois lié(e) : sera remplacé par la carte des catégories
+// (CHECKLIST.md, 2.2 « Accueil »).
+function renderCode(root, ctx, displayName) {
+  const { supabase } = ctx;
+  const t = ui.home;
+  const title = h('h1', {}, displayName ? `${t.title}, ${displayName}` : t.title);
   const codeEl = h('p', { class: 'code', 'aria-live': 'polite' }, '…');
   const msg = h('p', { class: 'msg', role: 'status' });
   let currentCode = '';
@@ -38,11 +66,6 @@ export async function renderHome(root, { supabase, session }) {
     }
   }, t.regenerate);
 
-  const logoutBtn = h('button', {
-    class: 'link', type: 'button',
-    onclick: () => supabase.auth.signOut()
-  }, t.logout);
-
   root.append(
     h('section', { class: 'card' },
       title,
@@ -50,17 +73,11 @@ export async function renderHome(root, { supabase, session }) {
       codeEl,
       h('div', { class: 'row' }, copyBtn, shareBtn),
       msg,
-      regenBtn
-    ),
-    h('p', { class: 'center' }, logoutBtn)
+      regenBtn)
   );
 
-  // ⚠️ Toujours lister les colonnes de profiles (contact_code n'est pas lisible).
-  const [profile, code] = await Promise.all([
-    supabase.from('profiles').select('id, display_name').eq('id', session.user.id).single(),
-    supabase.rpc('my_contact_code')
-  ]);
-  if (profile.data?.display_name) title.textContent = `${t.title}, ${profile.data.display_name}`;
-  if (code.error || !code.data) msg.textContent = ui.errors.generic;
-  else setCode(code.data);
+  supabase.rpc('my_contact_code').then(({ data, error }) => {
+    if (error || !data) msg.textContent = ui.errors.generic;
+    else setCode(data);
+  });
 }

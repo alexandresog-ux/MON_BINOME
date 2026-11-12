@@ -2,6 +2,9 @@
 export const ui = {
   appName: 'Construire une vie à deux',
   tagline: 'Clarifiez vos valeurs, comparez vos visions, bâtissez un projet commun.',
+  common: {
+    loading: 'Chargement…'
+  },
   login: {
     loginTitle: 'Connexion',
     signupTitle: 'Créer mon compte',
@@ -28,6 +31,25 @@ export const ui = {
     regenerated: 'Nouveau code généré.',
     logout: 'Me déconnecter',
     shareText: (code) => `Voici mon code pour jouer à « Construire une vie à deux » : ${code}`
+  },
+  pairing: {
+    title: 'Joue à deux',
+    myCode: 'Mon code de contact',
+    sendTitle: 'Inviter mon ou ma partenaire',
+    intro: 'Entre le code que ton ou ta partenaire t\'a envoyé pour te rejoindre.',
+    codeLabel: 'Le code de ton ou ta partenaire',
+    codePlaceholder: 'SOG-XXXX-XXXX',
+    send: 'Envoyer la demande',
+    sent: 'Demande envoyée ! Attends que ton ou ta partenaire l\'accepte.',
+    requestsTitle: 'Demandes reçues',
+    requestsEmpty: 'Aucune demande reçue pour le moment.',
+    requestFrom: (name) => `${name} souhaite te rejoindre.`,
+    accept: 'Accepter',
+    decline: 'Refuser',
+    block: 'Refuser et bloquer',
+    blockConfirm: (name) => `Refuser la demande de ${name} et le/la bloquer ? Vous ne pourrez plus vous envoyer de demandes l'un et l'autre.`,
+    declined: 'Demande refusée.',
+    linked: 'C\'est lié ! Vous pouvez commencer le questionnaire ensemble.'
   },
   install: {
     android: 'Installe l\'application sur ton téléphone.',
