@@ -32,7 +32,7 @@ input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); ou
   color: var(--brand-ink); background: var(--brand); border: 0; border-radius: .75rem; width: 100%;
 }
 .btn.secondary { background: transparent; color: var(--brand); border: 2px solid var(--brand); }
-.btn.small { width: auto; min-height: 2.5rem; padding: .4rem 1rem; }
+.btn.small { width: auto; min-height: 3rem; padding: .5rem 1.1rem; }
 .btn:disabled { opacity: .6; cursor: progress; }
 .link { background: none; border: 0; padding: .75rem 0; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
 .row { display: flex; gap: .75rem; }

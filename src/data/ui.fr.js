@@ -77,6 +77,7 @@ export const ui = {
     answerLabel: 'Ta réponse',
     placeholder: 'Écris ici, avec tes mots…',
     sensitiveHint: 'Question sensible : « Passer » est possible, sans pénalité et sans justification.',
+    skipConfirm: 'Passer efface le texte que tu as saisi pour cette question (il ne sera pas partagé). Continuer ?',
     skippedBadge: 'Passée',
     skip: 'Passer',
     resume: 'Reprendre ma réponse',

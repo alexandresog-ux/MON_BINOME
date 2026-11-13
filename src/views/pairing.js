@@ -112,7 +112,7 @@ export async function renderPairing(root, ctx, info = {}) {
         p_request: row.request_id, p_accept: accept, p_block: block
       });
       if (error || !data?.ok) {
-        msg.textContent = error ? ui.errors.generic : errorMessage(data.error);
+        msg.textContent = error ? ui.errors.generic : errorMessage(data?.error);
         buttons.forEach((b) => { b.disabled = false; });
         return;
       }

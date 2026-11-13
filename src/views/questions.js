@@ -104,15 +104,19 @@ export async function renderQuestions(root, ctx, categoryId) {
     timer = null;
     const text = d.body.trim();
     let payload;
-    if (!d.skipped && !text) {
+    if (d.skipped) {
+      // Contrainte SQL : body doit être null quand skipped. « Passer » n'enregistre
+      // donc aucune réponse — un texte tapé avant de passer n'est jamais partagé.
+      payload = { skipped: true, body: null };
+    } else if (!text) {
       // Sans texte : une ligne existante devient « passée », sinon rien à écrire.
       if (!d.hasRow) { d.dirty = false; return true; }
       payload = { skipped: true, body: null };
     } else {
-      // « Passer » conserve le texte saisi (affiché au retour).
-      payload = { skipped: d.skipped, body: text || null };
+      payload = { skipped: false, body: text };
     }
 
+    const explicitSkip = d.skipped;
     const { data, error } = await supabase.from('answers').upsert({
       couple_id: coupleId,
       user_id: uid,
@@ -127,7 +131,15 @@ export async function renderQuestions(root, ctx, categoryId) {
     }
     d.dirty = false;
     d.hasRow = true;
-    if (!payload.skipped) { d.skipped = false; d.editing = false; }
+    d.skipped = payload.skipped;
+    if (payload.skipped) {
+      // Rien n'est conservé dans la base : l'affichage doit le refléter.
+      d.body = '';
+      // Champ vidé tout seul : on reste éditable pour éviter un verrouillage surprise.
+      d.editing = !explicitSkip;
+    } else {
+      d.editing = false;
+    }
     statusMsg.textContent = t.saved;
     return true;
   }
@@ -173,6 +185,8 @@ export async function renderQuestions(root, ctx, categoryId) {
     ta.value = d.body;
     ta.addEventListener('input', () => {
       d.body = ta.value;
+      // Rédiger annule un « passée » posé automatiquement (champ vidé puis repris).
+      if (d.body.trim() && d.skipped) d.skipped = false;
       d.dirty = true;
       clearTimeout(timer);
       timer = setTimeout(() => sync(q.id), 800);
@@ -193,6 +207,7 @@ export async function renderQuestions(root, ctx, categoryId) {
           class: 'link', type: 'button',
           onclick: async () => {
             clearTimeout(timer);
+            if (d.body.trim() && !window.confirm(t.skipConfirm)) return;
             d.skipped = true;
             d.editing = false;
             d.dirty = true;
