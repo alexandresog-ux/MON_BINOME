@@ -64,13 +64,17 @@ export async function renderCategories(root, ctx, info = {}) {
             h('span', { style: `width:${Math.round((answered / total) * 100)}%` }))
         : null;
 
-      const clickable = !iValidated;
-      const props = { class: clickable ? 'card category clickable' : 'card category' };
-      if (clickable) {
-        props.onclick = () => navigate({ name: 'questions', categoryId: cat.id });
+      // Cliquable si je peux encore répondre, ou si j'attends mon partenaire
+      // (salle d'attente). La révélation viendra dès que les deux ont validé.
+      const target = !iValidated
+        ? { name: 'questions', categoryId: cat.id }
+        : (partnerValidated ? null : { name: 'wait', categoryId: cat.id });
+      const props = { class: target ? 'card category clickable' : 'card category' };
+      if (target) {
+        props.onclick = () => navigate(target);
         props['aria-label'] = t.openLabel(cat.title);
       }
-      return h(clickable ? 'button' : 'div', props,
+      return h(target ? 'button' : 'div', props,
         h('span', { class: 'category-title' }, cat.title),
         h('span', { class: 'category-sub muted' }, cat.subtitle),
         h('span', { class: 'category-status' }, statusText),

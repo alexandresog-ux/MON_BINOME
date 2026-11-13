@@ -64,6 +64,19 @@ export const ui = {
       both: 'Les deux ont validé · révélation à venir'
     }
   },
+  waiting: {
+    title: 'Ton ou ta partenaire n\'a pas encore terminé',
+    intro: 'Ta catégorie est validée : tes réponses sont verrouillées. Dès que chacun(e) a validé de son côté, vous pourrez découvrir vos réponses côte à côte.',
+    mineOk: 'Toi : catégorie validée.',
+    partnerPending: 'Ton ou ta partenaire : en cours de réponse…',
+    waitingFor: 'On attend ton ou ta partenaire. Tu peux fermer l\'écran, l\'état se met à jour tout seul.',
+    refresh: 'Actualiser',
+    reconnecting: 'Reconnexion en cours…',
+    reconnectFailed: 'La connexion au temps réel est perdue. Appuie sur « Actualiser » de temps en temps.',
+    offline: 'Tu es hors ligne : l\'écran se mettra à jour dès que la connexion revient.',
+    bothValidated: 'Vous avez tous les deux validé ! Les réponses arrivent.',
+    notValidated: 'Ta catégorie n\'est plus marquée comme validée. Retourne aux catégories.'
+  },
   questions: {
     backToCategories: 'Retour aux catégories',
     notFound: 'Cette catégorie n\'existe pas.',

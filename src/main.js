@@ -5,14 +5,20 @@ import { ui } from './data/ui.fr.js';
 import { renderLogin } from './views/login.js';
 import { renderHome } from './views/home.js';
 import { renderQuestions } from './views/questions.js';
+import { renderWaiting } from './views/waiting.js';
 import { installBanner } from './views/installBanner.js';
 
 const root = document.getElementById('app');
 
 let currentSession = null;
 let route = { name: 'home' };
+// Hooks de sortie d'écran (désabonnement Realtime, listeners…).
+let leaveHooks = [];
 
 async function render() {
+  for (const hook of leaveHooks.splice(0)) {
+    try { hook(); } catch (err) { console.error(err); }
+  }
   root.replaceChildren();
   const main = h('main', { class: 'wrap' });
   root.append(main);
@@ -21,9 +27,13 @@ async function render() {
     renderLogin(main, { supabase });
     return;
   }
-  const ctx = { supabase, session: currentSession, navigate };
+  const ctx = {
+    supabase, session: currentSession, navigate,
+    onLeave: (fn) => { leaveHooks.push(fn); }
+  };
   try {
     if (route.name === 'questions') await renderQuestions(main, ctx, route.categoryId);
+    else if (route.name === 'wait') await renderWaiting(main, ctx, route.categoryId);
     else await renderHome(main, ctx, route.notice);
   } catch (err) {
     console.error(err);

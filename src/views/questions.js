@@ -167,7 +167,10 @@ export async function renderQuestions(root, ctx, categoryId) {
       validateBtn.disabled = false;
       return;
     }
-    navigate({ name: 'home', notice: data.revealed ? t.revealed : t.waitPartner });
+    // Réponses verrouillées dès maintenant (RLS) : on passe en salle d'attente,
+    // sauf si les deux ont déjà validé (révélation).
+    if (data.revealed) navigate({ name: 'home', notice: t.revealed });
+    else navigate({ name: 'wait', categoryId: cat.id });
   }
 
   const validateBtn = h('button', { class: 'btn', type: 'button', onclick: validate }, t.validate);

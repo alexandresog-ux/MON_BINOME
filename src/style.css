@@ -67,3 +67,5 @@ textarea:disabled { opacity: .7; }
 }
 .hint { font-size: .9rem; }
 .progress { font-weight: 700; margin-bottom: .5rem; }
+.statusline { margin: .5rem 0; font-weight: 600; }
+.statusline.ok { color: var(--brand); }
