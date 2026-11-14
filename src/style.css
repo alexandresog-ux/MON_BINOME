@@ -45,6 +45,18 @@ input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); ou
   box-shadow: 0 6px 24px rgba(0, 0, 0, .15); font-size: .9rem;
 }
 .install[hidden] { display: none; }
+.update {
+  position: fixed; left: .75rem; right: .75rem; bottom: calc(.75rem + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  padding: .75rem 1rem; background: var(--brand); color: var(--brand-ink);
+  border-radius: 1rem; box-shadow: 0 6px 24px rgba(0, 0, 0, .2); font-size: .9rem;
+}
+.update[hidden] { display: none; }
+.update .btn { background: var(--brand-ink); color: var(--brand); }
+/* Si la bannière d'installation est aussi là, la mise à jour passe au-dessus. */
+body:has(.install:not([hidden])) .update { bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+.version { font-size: .8rem; margin-top: .5rem; }
 .warn { border-left: 4px solid var(--accent); }
 .request { margin-bottom: .75rem; }
 .category { display: block; width: 100%; text-align: left; font: inherit; color: inherit; }

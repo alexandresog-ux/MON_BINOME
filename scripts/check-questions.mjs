@@ -46,7 +46,21 @@ globalThis.document = {
   createElement: (t) => new MiniEl(t),
   createTextNode: (t) => new MiniText(t)
 };
-globalThis.window = { confirm: () => true, addEventListener() {}, removeEventListener() {} };
+// Mini-window : addEventListener/removeEventListener/dispatchEvent réels, pour
+// tester l'événement « app:before-reload » (sauvegarde avant un rechargement).
+const winListeners = {};
+globalThis.window = {
+  confirm: () => true,
+  location: { reload() {} },
+  addEventListener(type, fn) { (winListeners[type] ??= []).push(fn); },
+  removeEventListener(type, fn) {
+    winListeners[type] = (winListeners[type] ?? []).filter((f) => f !== fn);
+  },
+  dispatchEvent(ev) {
+    for (const fn of [...(winListeners[ev.type] ?? [])]) fn(ev);
+    return true;
+  }
+};
 
 // --- Arbre ----------------------------------------------------------
 function walk(el, out = []) {
@@ -261,6 +275,31 @@ console.log('\n== 4. Dernière question : validation avec le décompte ==');
   if (!btn) fail('bouton de validation absent sur la dernière question');
   else if (!/6 sur 8/.test(btn.textContent)) fail(`décompte absent : « ${btn.textContent} »`);
   else ok(`« ${btn.textContent} »`);
+}
+
+console.log('\n== 5. Avant un rechargement demandé : la sauvegarde en cours est terminée ==');
+{
+  const supabase = makeSupabase();
+  const root = await renderCategory(content.categories[0], supabase);
+  const textarea = walk(root).find((e) => e.tagName === 'TEXTAREA');
+  textarea.value = 'Texte encore non sauvegardé';
+  for (const fn of textarea.listeners.input ?? []) await fn({ target: textarea });
+  // Le debounce de 800 ms n'a pas encore joué : rien n'est en base.
+  if (supabase.rows.length === 0) ok('réponse tapée mais pas encore enregistrée (debounce)');
+  else fail(`réponse déjà en base avant le rechargement : [${supabase.rows.map((r) => r.question_id)}]`);
+
+  const flushes = [];
+  window.dispatchEvent({
+    type: 'app:before-reload',
+    detail: { flush: (p) => flushes.push(Promise.resolve(p)) }
+  });
+  await Promise.allSettled(flushes);
+  const first = content.categories[0].questions[0].id;
+  if (supabase.rows.some((r) => r.question_id === first && r.body === 'Texte encore non sauvegardé')) {
+    ok('sauvegarde terminée avant le rechargement');
+  } else {
+    fail(`sauvegarde non terminée avant le rechargement (lignes : [${supabase.rows.map((r) => r.question_id)}])`);
+  }
 }
 
 await server.close();

@@ -30,7 +30,8 @@ export const ui = {
     regenerateConfirm: 'Ton ancien code ne fonctionnera plus et les demandes en attente seront annulées. Continuer ?',
     regenerated: 'Nouveau code généré.',
     logout: 'Me déconnecter',
-    shareText: (code) => `Voici mon code pour jouer à « Construire une vie à deux » : ${code}`
+    shareText: (code) => `Voici mon code pour jouer à « Construire une vie à deux » : ${code}`,
+    buildInfo: (version, commit) => `Version ${version} · commit ${commit}`
   },
   pairing: {
     title: 'Joue à deux',
@@ -111,6 +112,10 @@ export const ui = {
     android: 'Installe l\'application sur ton téléphone.',
     button: 'Installer',
     ios: 'Pour installer : touche « Partager » puis « Sur l\'écran d\'accueil ».'
+  },
+  update: {
+    text: 'Une nouvelle version est disponible.',
+    refresh: 'Actualiser'
   },
   setup: {
     title: 'Configuration manquante',

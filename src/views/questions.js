@@ -304,5 +304,11 @@ export async function renderQuestions(root, ctx, categoryId) {
     ready = true;
   }
 
+  // Avant un rechargement demandé par l'utilisateur (bannière « nouvelle
+  // version »), on termine la sauvegarde en cours : rien n'est perdu.
+  const beforeReload = (ev) => { ev.detail?.flush?.(flushCurrent()); };
+  window.addEventListener('app:before-reload', beforeReload);
+  ctx.onLeave(() => window.removeEventListener('app:before-reload', beforeReload));
+
   draw();
 }
