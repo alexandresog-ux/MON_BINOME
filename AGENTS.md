@@ -16,6 +16,8 @@ Stack : Vite + vite-plugin-pwa · Supabase (auth, Postgres, Realtime, RLS) · Ne
 6. La confidentialité des réponses est garantie par la RLS, pas par l'interface. Ne « cache » jamais une donnée côté client en comptant sur le front.
 7. Ne mets JAMAIS en cache les réponses de Supabase (pas de `runtimeCaching` dans le service worker, pas de localStorage pour des réponses).
 8. Un commit par étape cochée dans `CHECKLIST.md`.
+9. Ne jamais écrire d'URL, de clé ou de valeur réelle dans un fichier versionné (workflows, README, code). Les valeurs vont dans `.env` (ignoré par Git), dans les variables d'environnement Netlify ou dans les secrets GitHub. Avant chaque commit, vérifie qu'aucun fichier stagé ne contient `eyJ`, `sb_secret`, `service_role` ni l'URL réelle du projet Supabase :
+   `git diff --cached -U0 | Select-String -Pattern 'eyJ|sb_secret|service_role|\.supabase\.co'` (doit rester vide) et `git diff --cached --numstat` (aucun fichier devenu « binaire », sinon il échappe au scan).
 
 ## Ton et interface
 - Français, tutoiement, ton bienveillant, sans jugement. Aucun « gagnant / perdant », aucun score de « compatibilité ».
