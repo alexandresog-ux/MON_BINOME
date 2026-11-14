@@ -141,29 +141,56 @@ async function renderCategory(cat, supabase, navigateLog = []) {
   return root;
 }
 
-console.log('\n== 1. Chaque catégorie expose ses 8 questions ==');
+// Élément qui porte réellement l'énoncé à l'écran (h2.question).
+const questionEl = (root) =>
+  walk(root).find((e) => String(e.className ?? '').split(' ').includes('question'));
+
+console.log('\n== 1. Énoncé affiché = exactement celui de l\'index courant (12 × 8) ==');
 for (const cat of content.categories) {
   const supabase = makeSupabase();
   const root = await renderCategory(cat, supabase);
-  const seen = [];
-  for (let i = 1; i <= 8; i += 1) {
-    const label = t.progress(i, 8);
-    if (!byText(root, 'P', label)) fail(`cat ${cat.id} : « ${label} » absente`);
-    const textarea = walk(root).find((e) => e.tagName === 'TEXTAREA');
-    if (!textarea) fail(`cat ${cat.id} q${i} : pas de champ de réponse`);
-    const text = cat.questions[i - 1].text;
-    if (!walk(root).some((e) => e.textContent.includes(text))) {
-      fail(`cat ${cat.id} q${i} : texte de la question non affiché`);
+  const displayed = [];
+  for (let i = 0; i < 8; i += 1) {
+    const attendu = cat.questions[i].text;
+    const el = questionEl(root);
+    if (!el) {
+      fail(`cat ${cat.id} q${i + 1} : aucun énoncé rendu dans le DOM`);
+    } else if (el.textContent !== attendu) {
+      fail(`cat ${cat.id} q${i + 1} : énoncé affiché « ${String(el.textContent).slice(0, 50)}… »`
+        + ` au lieu de « ${attendu.slice(0, 50)}… »`);
+    } else {
+      displayed.push(el.textContent);
     }
+    if (!byText(root, 'P', t.progress(i + 1, 8))) fail(`cat ${cat.id} q${i + 1} : compteur incorrect`);
+    if (!walk(root).find((e) => e.tagName === 'TEXTAREA')) fail(`cat ${cat.id} q${i + 1} : pas de champ de réponse`);
+
     await click(byText(root, 'BUTTON', t.skip));
-    if (i < 8) await click(byText(root, 'BUTTON', t.next));
+    if (i < 7) {
+      // Navigation alternée : pastille numérotée (pairs) puis « Suivant » (impairs).
+      const chips = walk(root).filter((e) => e.tagName === 'BUTTON' && String(e.className).includes('chip'));
+      const useChip = i % 2 === 0;
+      const target = useChip ? chips[i + 1] : byText(root, 'BUTTON', t.next);
+      if (!target) {
+        fail(`cat ${cat.id} q${i + 1} : ${useChip ? 'pastille numérotée' : 'bouton « Suivant »'} absent`);
+        break;
+      }
+      await click(target);
+      const suivant = questionEl(root);
+      if (suivant && suivant.textContent === attendu && cat.questions[i + 1].text !== attendu) {
+        fail(`cat ${cat.id} : énoncé figé sur q${i + 1} après navigation`);
+      }
+    }
+  }
+  const uniq = new Set(displayed);
+  if (uniq.size !== 8) {
+    fail(`cat ${cat.id} : ${8 - uniq.size} énoncé(s) identique(s) affiché(s) sur les 8`);
   }
   const expected = cat.questions.map((q) => q.id);
   const got = supabase.rows.map((r) => r.question_id);
   if (JSON.stringify(got) !== JSON.stringify(expected)) {
     fail(`cat ${cat.id} : enregistré [${got}] au lieu de [${expected}]`);
-  } else {
-    ok(`cat ${cat.id} : 8 questions visitées et enregistrées`);
+  } else if (uniq.size === 8) {
+    ok(`cat ${cat.id} : 8 énoncés distincts et exacts à chaque index`);
   }
   if (!byTextStart(root, 'BUTTON', t.validate)) fail(`cat ${cat.id} : bouton « ${t.validate} » absent`);
 }
@@ -179,6 +206,10 @@ console.log('\n== 2. Position de départ : première question non traitée ==');
   if (byText(root, 'P', t.progress(3, 8))) ok('reprise sur la question 3 (2 traitées)');
   else fail(`attendu « ${t.progress(3, 8)} », obtenu « ${
     walk(root).find((e) => e.tagName === 'P' && e.className.includes('progress'))?.textContent} »`);
+  const el = questionEl(root);
+  if (!el || el.textContent !== content.categories[0].questions[2].text) {
+    fail(`reprise : énoncé affiché « ${el?.textContent?.slice(0, 50)}… » au lieu de l'énoncé de la question 3`);
+  } else ok('reprise : énoncé exact de la question 3 affiché');
 }
 
 console.log('\n== 3. L\'index ne revient pas à 0 après une sauvegarde automatique ==');
@@ -196,6 +227,17 @@ console.log('\n== 3. L\'index ne revient pas à 0 après une sauvegarde automati
   if (supabase.rows.some((r) => r.question_id === 'c01q02' && r.body === 'Une réponse tapée')) {
     ok('réponse de la question 2 enregistrée');
   } else fail('réponse de la question 2 non enregistrée');
+  const el = questionEl(root);
+  if (!el || el.textContent !== content.categories[0].questions[1].text) {
+    fail(`après sauvegarde auto : énoncé « ${el?.textContent?.slice(0, 50)}… » au lieu de celui de la question 2`);
+  } else ok('après sauvegarde auto : énoncé de la question 2 conservé');
+
+  // « Précédent » doit aussi changer l'énoncé.
+  await click(byText(root, 'BUTTON', t.prev));
+  const back = questionEl(root);
+  if (!back || back.textContent !== content.categories[0].questions[0].text) {
+    fail(`après « Précédent » : énoncé « ${back?.textContent?.slice(0, 50)}… » au lieu de celui de la question 1`);
+  } else ok('« Précédent » : énoncé de la question 1 affiché');
 }
 
 console.log('\n== 4. Dernière question : validation avec le décompte ==');
@@ -208,10 +250,13 @@ console.log('\n== 4. Dernière question : validation avec le décompte ==');
     });
   }
   const root = await renderCategory(content.categories[0], supabase);
-  const chips = walk(root).filter((e) => e.tagName === 'BUTTON' && e.className.includes('chip'));
-  if (chips.length !== 8) fail(`attendu 8 pastilles de navigation, obtenu ${chips.length}`);
-  else ok('8 pastilles : accès direct à chaque question');
-  await click(chips[7]); // saut direct sur la question 8
+  const chips = walk(root).filter((e) => e.tagName === 'BUTTON' && String(e.className).includes('chip'));
+  if (chips.length !== 8) {
+    fail(`attendu 8 pastilles de navigation, obtenu ${chips.length}`);
+  } else {
+    ok('8 pastilles : accès direct à chaque question');
+    await click(chips[7]); // saut direct sur la question 8
+  }
   const btn = byTextStart(root, 'BUTTON', t.validate);
   if (!btn) fail('bouton de validation absent sur la dernière question');
   else if (!/6 sur 8/.test(btn.textContent)) fail(`décompte absent : « ${btn.textContent} »`);
