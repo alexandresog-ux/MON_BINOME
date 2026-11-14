@@ -1,6 +1,6 @@
-# Construire une vie à deux
+# MON BINÔME
 
-PWA pour couples, basée sur le questionnaire du Coach Alexandre Sognon (12 catégories, 96 questions, objectifs SMART). Jouable à distance sur deux téléphones, avec appairage par code de contact.
+PWA pour couples, fondée sur le questionnaire « Construire une vie à deux » du Coach Alexandre Sognon (12 catégories, 96 questions, objectifs SMART). Jouable à distance sur deux téléphones, avec appairage par code de contact.
 
 ## Démarrage
 

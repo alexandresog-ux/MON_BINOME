@@ -14,7 +14,11 @@ export function renderLogin(root, { supabase }) {
   const t = ui.login;
   let mode = 'login';
   const card = h('section', { class: 'card' });
-  root.append(h('header', { class: 'hero' }, h('h1', {}, ui.appName), h('p', { class: 'muted' }, ui.tagline)), card);
+  root.append(h('header', { class: 'hero' },
+    h('h1', {}, ui.appName),
+    h('p', { class: 'muted' }, ui.questionnaireSubtitle),
+    h('p', { class: 'muted hint' }, ui.questionnaireByline),
+    h('p', { class: 'muted' }, ui.tagline)), card);
   draw();
 
   function draw(message = '') {

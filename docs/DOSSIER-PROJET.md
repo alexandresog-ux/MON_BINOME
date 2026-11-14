@@ -1,5 +1,6 @@
-# Dossier du projet — « Construire une vie à deux »
+# Dossier du projet — « MON BINÔME »
 
+Application « MON BINÔME » : son contenu repose sur le questionnaire « Construire une vie à deux » du Coach Alexandre Sognon.
 Document de synthèse regroupant tout le projet en un seul endroit.
 Dernière mise à jour : 12 novembre 2026.
 Auteur du contenu : Coach Alexandre Sognon · SOG Digital Studio · Cotonou, Bénin.

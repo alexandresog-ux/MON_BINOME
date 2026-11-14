@@ -1,6 +1,10 @@
 // Tous les textes de l'interface. Pour traduire plus tard : dupliquer ce fichier (ui.en.js…).
 export const ui = {
-  appName: 'Construire une vie à deux',
+  // Nom de l'application (nom court : manifest.short_name / apple-mobile-web-app-title).
+  appName: 'MON BINÔME',
+  // Le questionnaire du coach reste un contenu à part : affiché en sous-titre.
+  questionnaireSubtitle: 'Construire une vie à deux',
+  questionnaireByline: 'Questionnaire du Coach Alexandre Sognon · SOG Digital Studio',
   tagline: 'Clarifiez vos valeurs, comparez vos visions, bâtissez un projet commun.',
   common: {
     loading: 'Chargement…'
@@ -30,7 +34,7 @@ export const ui = {
     regenerateConfirm: 'Ton ancien code ne fonctionnera plus et les demandes en attente seront annulées. Continuer ?',
     regenerated: 'Nouveau code généré.',
     logout: 'Me déconnecter',
-    shareText: (code) => `Voici mon code pour jouer à « Construire une vie à deux » : ${code}`,
+    shareText: (code) => `Voici mon code pour rejoindre MON BINÔME : ${code}`,
     buildInfo: (version, commit) => `Version ${version} · commit ${commit}`
   },
   pairing: {

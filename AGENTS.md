@@ -1,9 +1,10 @@
-# AGENTS.md — « Construire une vie à deux »
+# AGENTS.md — « MON BINÔME »
 
 Contexte pour OpenCode (ou tout agent de code). Lis aussi `CHECKLIST.md` (partie 2 = ton travail) et `supabase/schema.sql`.
 
 ## Le projet
-PWA en JavaScript (Vite, sans framework) : jeu-questionnaire pour couples, jouable à distance sur deux téléphones.
+Application « MON BINÔME » : PWA en JavaScript (Vite, sans framework) — jeu-questionnaire pour couples, jouable à distance sur deux téléphones.
+Son contenu repose sur le questionnaire « Construire une vie à deux » du Coach Alexandre Sognon.
 Chaque partenaire répond séparément aux 96 questions (12 catégories), valide, puis les réponses sont révélées côte à côte, suivies des notes d'alignement et d'un objectif SMART commun. Auteur du contenu : Coach Alexandre Sognon (SOG Digital Studio).
 Stack : Vite + vite-plugin-pwa · Supabase (auth, Postgres, Realtime, RLS) · Netlify.
 

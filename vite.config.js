@@ -20,8 +20,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['icons/apple-touch-icon.png', 'icons/favicon.png'],
       manifest: {
-        name: 'Construire une vie à deux',
-        short_name: 'Vie à deux',
+        name: 'MON BINÔME',
+        short_name: 'Mon Binôme',
         description: 'Questionnaire pour couples : valeurs, vision, projet commun et objectifs SMART.',
         lang: 'fr',
         start_url: '/',

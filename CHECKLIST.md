@@ -1,6 +1,6 @@
-# CHECKLIST — Jeu « Construire une vie à deux »
+# CHECKLIST — « MON BINÔME »
 
-PWA jouable à distance par deux partenaires, basée sur le questionnaire du Coach Alexandre Sognon (12 catégories, 96 questions, objectifs SMART).
+PWA jouable à distance par deux partenaires, fondée sur le questionnaire « Construire une vie à deux » du Coach Alexandre Sognon (12 catégories, 96 questions, objectifs SMART).
 
 **Stack** : PWA (Vite + JavaScript) · Supabase (auth, base, temps réel, RLS) · Netlify (hébergement) · GitHub Actions (keep-alive)
 

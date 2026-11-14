@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Construire une vie à deux — jeu-questionnaire pour couples (PWA)",
+  "description": "MON BINÔME — jeu-questionnaire pour couples (PWA)",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
