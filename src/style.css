@@ -67,5 +67,15 @@ textarea:disabled { opacity: .7; }
 }
 .hint { font-size: .9rem; }
 .progress { font-weight: 700; margin-bottom: .5rem; }
+.question { font-size: 1.15rem; line-height: 1.45; font-weight: 600; margin: .25rem 0 1rem; }
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0 .25rem; }
+.chip {
+  min-width: 3rem; min-height: 3rem; padding: 0; border-radius: .75rem;
+  border: 1px solid var(--line); background: transparent; color: var(--text);
+  font: inherit; font-weight: 700; cursor: pointer;
+}
+.chip.done { border-color: var(--brand); color: var(--brand); }
+.chip.current { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.chip:disabled { opacity: .6; }
 .statusline { margin: .5rem 0; font-weight: 600; }
 .statusline.ok { color: var(--brand); }

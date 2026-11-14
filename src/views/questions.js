@@ -11,6 +11,9 @@ export async function renderQuestions(root, ctx, categoryId) {
   const cat = content.categories.find((c) => c.id === Number(categoryId));
 
   let ready = false;
+  // Position courante : variable locale de l'écran. Elle n'est jamais remise à
+  // zéro par une sauvegarde ni par un rafraîchissement de l'état — seule la
+  // première question non traitée est choisie à l'ouverture.
   let index = 0;
   let timer = null;
 
@@ -92,6 +95,16 @@ export async function renderQuestions(root, ctx, categoryId) {
     d.hasRow = true;
   }
 
+  // « Traitée » = réponse saisie ou question passée. À l'ouverture, on se place
+  // sur la première question non traitée (la dernière si tout est traité).
+  const isTreated = (q) => {
+    const d = drafts.get(q.id);
+    return Boolean(d.body.trim()) || d.skipped;
+  };
+  const treatedCount = () => cat.questions.filter(isTreated).length;
+  const firstUntreated = cat.questions.findIndex((q) => !isTreated(q));
+  index = firstUntreated === -1 ? cat.questions.length - 1 : firstUntreated;
+
   const statusMsg = h('p', { class: 'msg', role: 'status' });
   const partnerNote = partnerValidated ? h('p', { class: 'msg' }, t.partnerDone) : null;
 
@@ -99,7 +112,9 @@ export async function renderQuestions(root, ctx, categoryId) {
   // Une mise à jour bloquée par la RLS ne renvoie pas d'erreur : on vérifie la ligne.
   async function sync(qid) {
     const d = drafts.get(qid);
-    if (!d.dirty) return true;
+    // Une sauvegarde qui échoue ne doit jamais faire bouger ni bloquer l'écran :
+    // on renvoie false avec un message, sans jamais lever d'exception.
+    if (!d || !d.dirty) return true;
     clearTimeout(timer);
     timer = null;
     const text = d.body.trim();
@@ -117,14 +132,20 @@ export async function renderQuestions(root, ctx, categoryId) {
     }
 
     const explicitSkip = d.skipped;
-    const { data, error } = await supabase.from('answers').upsert({
-      couple_id: coupleId,
-      user_id: uid,
-      category_id: cat.id,
-      question_id: qid,
-      body: payload.body,
-      skipped: payload.skipped
-    }, { onConflict: 'couple_id,user_id,question_id' }).select('question_id');
+    let saved;
+    try {
+      saved = await supabase.from('answers').upsert({
+        couple_id: coupleId,
+        user_id: uid,
+        category_id: cat.id,
+        question_id: qid,
+        body: payload.body,
+        skipped: payload.skipped
+      }, { onConflict: 'couple_id,user_id,question_id' }).select('question_id');
+    } catch {
+      saved = { data: null, error: true };
+    }
+    const { data, error } = saved;
     if (error || !data?.length) {
       statusMsg.textContent = t.saveError;
       return false;
@@ -152,16 +173,19 @@ export async function renderQuestions(root, ctx, categoryId) {
       const saved = await sync(q.id);
       if (!saved) { validateBtn.disabled = false; return; }
     }
-    const done = cat.questions.filter((q) => {
-      const d = drafts.get(q.id);
-      return Boolean(d.body.trim()) || d.skipped;
-    }).length;
+    const done = treatedCount();
     if (done < cat.questions.length) {
       statusMsg.textContent = errorMessage('categorie_incomplete');
       validateBtn.disabled = false;
       return;
     }
-    const { data, error } = await supabase.rpc('validate_category', { p_category: cat.id });
+    let res;
+    try {
+      res = await supabase.rpc('validate_category', { p_category: cat.id });
+    } catch {
+      res = { data: null, error: true };
+    }
+    const { data, error } = res;
     if (error || !data?.ok) {
       statusMsg.textContent = error ? ui.errors.generic : errorMessage(data?.error);
       validateBtn.disabled = false;
@@ -173,14 +197,18 @@ export async function renderQuestions(root, ctx, categoryId) {
     else navigate({ name: 'wait', categoryId: cat.id });
   }
 
-  const validateBtn = h('button', { class: 'btn', type: 'button', onclick: validate }, t.validate);
+  const validateBtn = h('button', {
+    class: 'btn', type: 'button', onclick: validate
+  }, t.validateWith(treatedCount(), cat.questions.length));
 
   // --- Rendu d'une question ------------------------------------------
   function draw() {
     const q = cat.questions[index];
     const d = drafts.get(q.id);
-    const isLast = index === cat.questions.length - 1;
+    const total = cat.questions.length;
+    const isLast = index === total - 1;
     const passed = d.skipped && !d.editing;
+    validateBtn.textContent = t.validateWith(treatedCount(), total);
 
     const ta = h('textarea', {
       rows: 6, maxlength: 4000, placeholder: t.placeholder, disabled: passed
@@ -192,7 +220,7 @@ export async function renderQuestions(root, ctx, categoryId) {
       if (d.body.trim() && d.skipped) d.skipped = false;
       d.dirty = true;
       clearTimeout(timer);
-      timer = setTimeout(() => sync(q.id), 800);
+      timer = setTimeout(() => { sync(q.id); }, 800);
     });
 
     const toggleBtn = passed
@@ -219,34 +247,51 @@ export async function renderQuestions(root, ctx, categoryId) {
           }
         }, t.skip);
 
+    const goTo = (i) => async () => {
+      if (i === index || i < 0 || i >= cat.questions.length) return;
+      clearTimeout(timer);
+      const saved = await sync(q.id);
+      if (!saved) return;
+      index = i;
+      draw();
+    };
+
     const prevBtn = h('button', {
       class: 'btn secondary', type: 'button', disabled: index === 0,
-      onclick: async () => {
-        clearTimeout(timer);
-        const saved = await sync(q.id);
-        if (!saved) return;
-        index -= 1;
-        draw();
-      }
+      onclick: goTo(index - 1)
     }, t.prev);
 
     const nextBtn = isLast ? null : h('button', {
       class: 'btn', type: 'button',
-      onclick: async () => {
-        clearTimeout(timer);
-        const saved = await sync(q.id);
-        if (!saved) return;
-        index += 1;
-        draw();
-      }
+      onclick: goTo(index + 1)
     }, t.next);
+
+    // Accès direct : chaque question est atteignable en un geste, sans repasser
+    // par les précédentes. Les questions traitées restent modifiables.
+    const chips = h('div', { class: 'chips', role: 'group', 'aria-label': t.jumpLabel },
+      cat.questions.map((cq, i) => {
+        const cd = drafts.get(cq.id);
+        const treated = Boolean(cd.body.trim()) || cd.skipped;
+        const current = i === index;
+        return h('button', {
+          class: `chip${current ? ' current' : treated ? ' done' : ''}`,
+          type: 'button',
+          'aria-label': current
+            ? t.jumpCurrent(i + 1)
+            : (treated ? t.jumpDone(i + 1) : t.jumpTodo(i + 1)),
+          'aria-current': current ? 'true' : false,
+          onclick: goTo(i)
+        }, String(i + 1));
+      }));
 
     body.replaceChildren(
       h('section', { class: 'card' },
         partnerNote,
-        h('p', { class: 'progress' }, t.progress(index + 1, cat.questions.length)),
+        h('p', { class: 'progress' }, t.progress(index + 1, total)),
         h('div', { class: 'bar', 'aria-hidden': 'true' },
-          h('span', { style: `width:${Math.round(((index + 1) / cat.questions.length) * 100)}%` })),
+          h('span', { style: `width:${Math.round(((index + 1) / total) * 100)}%` })),
+        chips,
+        h('h2', { class: 'question' }, q.text),
         h('label', { class: 'field' }, h('span', {}, t.answerLabel), ta),
         passed ? h('p', {}, h('span', { class: 'badge' }, t.skippedBadge)) : null,
         q.sensitive ? h('p', { class: 'muted hint' }, t.sensitiveHint) : null,

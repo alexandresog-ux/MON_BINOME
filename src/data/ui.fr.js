@@ -87,6 +87,10 @@ export const ui = {
     revealed: 'Vous avez tous les deux validé ! Les réponses arrivent.',
     partnerDone: 'Ton ou ta partenaire a déjà validé cette catégorie.',
     progress: (n, total) => `Question ${n} sur ${total}`,
+    jumpLabel: 'Aller directement à une question',
+    jumpCurrent: (n) => `Question ${n} : celle-ci`,
+    jumpTodo: (n) => `Question ${n} : à traiter`,
+    jumpDone: (n) => `Question ${n} : traitée`,
     answerLabel: 'Ta réponse',
     placeholder: 'Écris ici, avec tes mots…',
     sensitiveHint: 'Question sensible : « Passer » est possible, sans pénalité et sans justification.',
@@ -100,6 +104,7 @@ export const ui = {
     prev: 'Précédent',
     next: 'Suivant',
     validate: 'Valider la catégorie',
+    validateWith: (done, total) => `Valider la catégorie (${done} sur ${total} traitées)`,
     validateHint: 'Après validation, tes réponses sont verrouillées.'
   },
   install: {
