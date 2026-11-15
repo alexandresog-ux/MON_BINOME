@@ -84,7 +84,7 @@ PWA jouable à distance par deux partenaires, fondée sur le questionnaire « Co
 - [x] Salle d'attente « Ton ou ta partenaire n'a pas encore terminé »
 - [x] Révélation côte à côte des réponses
 - [x] Notes d'alignement 1 à 10 (écart ≥ 3 : conversation approfondie suggérée)
-- [ ] Formulaire guidé SMART (S, M, A, R, T + échéance)
+- [x] Formulaire guidé SMART (S, M, A, R, T + échéance)
 - [ ] Tableau de synthèse du couple
 - [ ] Bilan final (accords, sujets à approfondir, points non négociables)
 - [ ] Export PDF de la synthèse
