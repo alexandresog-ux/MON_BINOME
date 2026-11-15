@@ -9,6 +9,7 @@ import { renderQuestions } from './views/questions.js';
 import { renderWaiting } from './views/waiting.js';
 import { renderReveal } from './views/reveal.js';
 import { renderAlignment } from './views/alignment.js';
+import { renderSmart } from './views/smart.js';
 import { installBanner } from './views/installBanner.js';
 import { updateBanner } from './views/updateBanner.js';
 
@@ -40,6 +41,7 @@ async function render() {
     else if (route.name === 'wait') await renderWaiting(main, ctx, route.categoryId);
     else if (route.name === 'reveal') await renderReveal(main, ctx, route.categoryId);
     else if (route.name === 'alignment') await renderAlignment(main, ctx, route.categoryId);
+    else if (route.name === 'smart') await renderSmart(main, ctx, route.categoryId);
     else await renderHome(main, ctx, route.notice);
   } catch (err) {
     console.error(err);

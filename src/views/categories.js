@@ -1,6 +1,7 @@
 import { h } from '../dom.js';
 import { ui } from '../data/ui.fr.js';
 import content from '../data/questions.fr.json';
+import { isGoalComplete, isGoalEmpty } from '../goal.js';
 
 // Accueil une fois lié(e) : les 12 catégories avec progression et statut du couple.
 export async function renderCategories(root, ctx, info = {}) {
@@ -22,14 +23,15 @@ export async function renderCategories(root, ctx, info = {}) {
   async function load() {
     list.replaceChildren(h('p', { class: 'muted' }, ui.common.loading));
     // ⚠️ Mes réponses uniquement (RLS + filtre). Statut : les deux partenaires.
-    // Les notes se lisent par couple, sans filtre user_id (la RLS décide).
-    const [statusRes, answersRes, alignRes] = await Promise.all([
+    // L'objectif se lit par couple (la RLS ne le rend qu'après révélation).
+    const [statusRes, answersRes, goalRes] = await Promise.all([
       supabase.from('category_status').select('category_id, user_id, validated_at').eq('couple_id', coupleId),
       supabase.from('answers').select('category_id, question_id')
         .eq('couple_id', coupleId).eq('user_id', uid),
-      supabase.from('alignment').select('category_id, user_id').eq('couple_id', coupleId)
+      supabase.from('smart_goals').select('category_id, s_text, m_text, a_text, r_text, deadline')
+        .eq('couple_id', coupleId)
     ]);
-    if (statusRes.error || answersRes.error || alignRes.error) {
+    if (statusRes.error || answersRes.error || goalRes.error) {
       list.replaceChildren(
         h('p', { class: 'msg' }, ui.errors.generic),
         h('button', { class: 'link', type: 'button', onclick: load }, t.retry));
@@ -42,31 +44,44 @@ export async function renderCategories(root, ctx, info = {}) {
     }
     const validatedByMe = new Set();
     const validatedByPartner = new Set();
+    const revealed = new Set();
     for (const row of statusRes.data ?? []) {
       if (!row.validated_at) continue;
       if (row.user_id === uid) validatedByMe.add(row.category_id);
       else validatedByPartner.add(row.category_id);
     }
-    // La note du partenaire n'est lisible que si les deux ont noté : une ligne
-    // qui vient d'eux signifie donc que les deux notes sont comparées.
-    const notedByMe = new Set();
-    const compared = new Set();
-    for (const row of alignRes.data ?? []) {
-      if (row.user_id === uid) notedByMe.add(row.category_id);
-      else compared.add(row.category_id);
+    for (const cat of content.categories) {
+      if (validatedByMe.has(cat.id) && validatedByPartner.has(cat.id)) revealed.add(cat.id);
     }
+    const goalByCat = new Map();
+    for (const row of goalRes.data ?? []) goalByCat.set(row.category_id, row);
+
+    // Prochaine étape suggérée : le premier objectif révélé non terminé qui
+    // suit le dernier terminé (aucun verrou : toutes les cartes restent
+    // ouvrables, c'est une suggestion, pas une obligation).
+    let lastDone = -1;
+    const unfinished = [];
+    for (const cat of content.categories) {
+      if (!revealed.has(cat.id)) continue;
+      if (isGoalComplete(goalByCat.get(cat.id))) lastDone = cat.id;
+      else unfinished.push(cat.id);
+    }
+    const suggest = unfinished.find((id) => id > lastDone) ?? unfinished[0] ?? null;
 
     list.replaceChildren(...content.categories.map((cat) => {
       const answered = answeredCount.get(cat.id) ?? 0;
       const total = cat.questions.length;
       const iValidated = validatedByMe.has(cat.id);
       const partnerValidated = validatedByPartner.has(cat.id);
+      const isRevealed = revealed.has(cat.id);
 
       let statusText;
-      if (iValidated && partnerValidated) {
-        statusText = notedByMe.has(cat.id) && compared.has(cat.id)
-          ? t.status.compared
-          : (notedByMe.has(cat.id) ? t.status.myScore : t.status.revealed);
+      // Une fois révélée, la carte parle de l'objectif commun (SMART).
+      if (isRevealed) {
+        const goal = goalByCat.get(cat.id) ?? null;
+        statusText = isGoalEmpty(goal)
+          ? t.status.goalTodo
+          : (isGoalComplete(goal) ? t.status.goalDone : t.status.goalDoing);
       }
       else if (iValidated) statusText = t.status.waiting;
       else if (partnerValidated) statusText = t.status.partnerDone;
@@ -78,11 +93,13 @@ export async function renderCategories(root, ctx, info = {}) {
             h('span', { style: `width:${Math.round((answered / total) * 100)}%` }))
         : null;
 
-      // Cliquable si je peux encore répondre, si j'attends mon partenaire
-      // (salle d'attente), ou si les deux ont validé (révélation).
-      const target = !iValidated
-        ? { name: 'questions', categoryId: cat.id }
-        : (partnerValidated ? { name: 'reveal', categoryId: cat.id } : { name: 'wait', categoryId: cat.id });
+      // Cliquable toujours : répondre, salle d'attente, ou l'objectif commun
+      // dès que la catégorie est révélée.
+      const target = isRevealed
+        ? { name: 'smart', categoryId: cat.id }
+        : (!iValidated
+            ? { name: 'questions', categoryId: cat.id }
+            : (partnerValidated ? { name: 'reveal', categoryId: cat.id } : { name: 'wait', categoryId: cat.id }));
       const props = { class: target ? 'card category clickable' : 'card category' };
       if (target) {
         props.onclick = () => navigate(target);
@@ -92,7 +109,8 @@ export async function renderCategories(root, ctx, info = {}) {
         h('span', { class: 'category-title' }, cat.title),
         h('span', { class: 'category-sub muted' }, cat.subtitle),
         h('span', { class: 'category-status' }, statusText),
-        bar);
+        bar,
+        suggest === cat.id ? h('span', { class: 'badge suggest' }, t.suggest) : null);
     }));
   }
 }

@@ -87,6 +87,31 @@ const byText = (root, tag, text) =>
 const byTextStart = (root, tag, prefix) =>
   walk(root).find((e) => e.tagName === tag && e.textContent.trim().startsWith(prefix));
 
+// Saisie simulée sur un champ (input, focus, blur) et petits outils de lecture.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const type = async (el, value) => {
+  if (!el) throw new Error('champ introuvable');
+  el.value = value;
+  for (const fn of el.listeners.input ?? []) await fn({ target: el });
+};
+const focusEl = (el) => { for (const fn of el.listeners.focus ?? []) fn({ target: el }); };
+const blurEl = (el) => { for (const fn of el.listeners.blur ?? []) fn({ target: el }); };
+const textareas = (root) => walk(root).filter((e) => e.tagName === 'TEXTAREA');
+const dateInput = (root) =>
+  walk(root).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'date');
+// Écritures envoyées à smart_goals (les lectures sont exclues).
+const goalWrites = (supabase) =>
+  supabase.queries.filter((q) => q.table === 'smart_goals' && q.op !== 'select');
+// Termine les écritures en attente comme le fait la bannière « nouvelle version ».
+const flushWindow = async () => {
+  const flushes = [];
+  window.dispatchEvent({
+    type: 'app:before-reload',
+    detail: { flush: (p) => flushes.push(Promise.resolve(p)) }
+  });
+  await Promise.allSettled(flushes);
+};
+
 // --- Stub Supabase --------------------------------------------------
 // opts.status : lignes rendues par `category_status` ; opts.people : lignes
 // rendues par `profiles` ; opts.couple : couple_id rendu par `couple_members`
@@ -95,12 +120,17 @@ function makeSupabase(opts = {}) {
   const rows = [];
   const log = [];
   const queries = [];
+  const channels = [];
   const status = opts.status ?? [];
   const people = opts.people ?? [];
   const alignRows = [...(opts.alignment ?? [])];
+  const goalRows = [...(opts.goalRow ? [opts.goalRow] : [])];
   const MY_ID = 'user-1';
+  // Horodatages de la table smart_goals (trigger : now() à chaque écriture).
+  let stampN = 0;
+  const stamp = () => `2026-06-15T12:00:00.${String(stampN++).padStart(6, '0')}+00:00`;
   const resolve = (s) => {
-    queries.push({ table: s.table, op: s.op, filters: { ...s.filters }, payload: s.payload });
+    queries.push({ table: s.table, op: s.op, filters: { ...s.filters }, payload: s.payload, opts: s.opts });
     if (s.table === 'couple_members') {
       const coupleId = opts.couple === undefined ? 'couple-1' : opts.couple;
       return Promise.resolve({ data: coupleId ? [{ couple_id: coupleId }] : [], error: null });
@@ -133,6 +163,46 @@ function makeSupabase(opts = {}) {
         error: null
       });
     }
+    if (s.table === 'smart_goals') {
+      // Filtres posés par la vue : couple, catégorie, et updated_at (chaîne
+      // brute) pour l'optimistic concurrency de la mise à jour.
+      const match = (r, f) => (!('couple_id' in f) || r.couple_id === f.couple_id)
+        && (!('category_id' in f) || r.category_id === f.category_id)
+        && (!('updated_at' in f) || r.updated_at === f.updated_at);
+      if (s.op === 'update') {
+        if (opts.refuseGoal === 'error') {
+          return Promise.resolve({ data: null, error: { code: '42501', message: 'row-level security policy' } });
+        }
+        const row = goalRows.find((r) => match(r, s.filters));
+        // updated_at périmé : 0 ligne, comme PostgREST le renverrait.
+        if (!row) return Promise.resolve({ data: [], error: null });
+        // RLS qui refuse bien que la ligne corresponde : rien n'est écrit.
+        if (opts.refuseGoal === 'empty') return Promise.resolve({ data: [], error: null });
+        Object.assign(row, s.payload, { updated_at: stamp(), updated_by: MY_ID });
+        return Promise.resolve({ data: [{ ...row }], error: null });
+      }
+      if (s.op === 'upsert') {
+        if (opts.refuseGoal === 'error') {
+          return Promise.resolve({ data: null, error: { code: '42501', message: 'row-level security policy' } });
+        }
+        const row = goalRows.find((r) =>
+          r.couple_id === s.payload.couple_id && r.category_id === s.payload.category_id);
+        if (row) {
+          // ignoreDuplicates : la ligne du partenaire existe, 0 ligne renvoyée.
+          if (s.opts?.ignoreDuplicates) return Promise.resolve({ data: [], error: null });
+          Object.assign(row, s.payload, { updated_at: stamp(), updated_by: MY_ID });
+          return Promise.resolve({ data: [{ ...row }], error: null });
+        }
+        if (opts.refuseGoal === 'empty') return Promise.resolve({ data: [], error: null });
+        const created = { ...s.payload, updated_at: stamp(), updated_by: MY_ID };
+        goalRows.push(created);
+        return Promise.resolve({ data: [{ ...created }], error: null });
+      }
+      return Promise.resolve({
+        data: goalRows.filter((r) => match(r, s.filters)).map((r) => ({ ...r })),
+        error: null
+      });
+    }
     if (s.table === 'answers') {
       if (s.op === 'upsert') {
         const p = s.payload;
@@ -153,7 +223,10 @@ function makeSupabase(opts = {}) {
     const q = {
       select() { return q; },
       eq(col, val) { s.filters[col] = val; return q; },
-      upsert(payload) { s.op = 'upsert'; s.payload = payload; return q; },
+      upsert(payload, upsertOpts) {
+        s.op = 'upsert'; s.payload = payload; s.opts = upsertOpts ?? null; return q;
+      },
+      update(payload) { s.op = 'update'; s.payload = payload; return q; },
       maybeSingle() {
         return resolve(s).then((r) => ({ data: r.data?.[0] ?? null, error: r.error }));
       },
@@ -169,14 +242,29 @@ function makeSupabase(opts = {}) {
       }
       return Promise.resolve({ data: { ok: true }, error: null });
     },
-    // Canal Realtime factice : les vues s'abonnent, les tests pilotent l'état
-    // via le rechargement, pas via des événements.
-    channel() {
-      const ch = { on: () => ch, subscribe: () => ch };
+    // Canal Realtime : la vue s'abonne, les tests déclenchent les callbacks
+    // via `fire(table)` pour vérifier la resynchronisation d'écran.
+    channel(name) {
+      const ch = {
+        name, handlers: [],
+        on(type, cfg, cb) { ch.handlers.push({ cfg, cb }); return ch; },
+        subscribe() { return ch; }
+      };
+      channels.push(ch);
       return ch;
     },
-    removeChannel() {},
-    rows, log, queries
+    removeChannel(ch) {
+      const i = channels.indexOf(ch);
+      if (i >= 0) channels.splice(i, 1);
+    },
+    fire(table) {
+      for (const ch of channels) {
+        for (const hd of ch.handlers) {
+          if (hd.cfg.table === table) hd.cb({ table, eventType: 'UPDATE' });
+        }
+      }
+    },
+    rows, goalRows, log, queries
   };
 }
 
@@ -189,6 +277,7 @@ const server = await createServer({
 const { renderQuestions } = await server.ssrLoadModule('/src/views/questions.js');
 const { renderReveal } = await server.ssrLoadModule('/src/views/reveal.js');
 const { renderAlignment } = await server.ssrLoadModule('/src/views/alignment.js');
+const { renderSmart } = await server.ssrLoadModule('/src/views/smart.js');
 const { ui } = await server.ssrLoadModule('/src/data/ui.fr.js');
 const content = (await server.ssrLoadModule('/src/data/questions.fr.json')).default;
 
@@ -240,6 +329,21 @@ async function renderAlignmentView(supabase, categoryId) {
     onLeave: (fn) => { leave = fn; }
   };
   await renderAlignment(root, ctx, categoryId);
+  return { root, navigateLog, leave };
+}
+
+// Rendu de l'écran de l'objectif SMART commun (ticker Realtime/20 s inclus).
+async function renderSmartView(supabase, categoryId) {
+  const root = new MiniEl('div');
+  const navigateLog = [];
+  let leave = () => {};
+  const ctx = {
+    supabase,
+    session: { user: { id: 'user-1' } },
+    navigate: (r) => navigateLog.push(r),
+    onLeave: (fn) => { leave = fn; }
+  };
+  await renderSmart(root, ctx, categoryId);
   return { root, navigateLog, leave };
 }
 
@@ -658,6 +762,376 @@ console.log('\n== 13. Alignement : upsert refusé → verrouillage, sans excepti
     } else ok(`upsert refusé (${refuse}) : message de verrouillage affiché`);
     leave();
   }
+}
+
+console.log('\n== 14. Objectif : création (debounce 800 ms) avec ignoreDuplicates ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH });
+  const { root, leave } = await renderSmartView(supabase, cat.id);
+
+  const tas = textareas(root);
+  if (tas.length !== 4) fail(`attendu 4 champs de texte (S, M, A, R), obtenu ${tas.length}`);
+  else ok('4 champs de texte : S, M, A, R');
+  if (!dateInput(root)) fail('champ d\'échéance absent');
+  else ok('champ d\'échéance (date) présent');
+
+  await type(tas[0], 'Notre valeur partagée : la patience');
+  if (goalWrites(supabase).length) fail('écriture immédiate : le debounce de 800 ms n\'a pas joué');
+  else ok('debounce : rien n\'est envoyé avant les 800 ms');
+  await sleep(1200);
+
+  const create = supabase.queries.find((q) => q.table === 'smart_goals' && q.op === 'upsert');
+  if (!create) fail('aucune création envoyée alors qu\'aucune ligne n\'existait');
+  else if (!create.opts?.ignoreDuplicates) fail(`upsert sans ignoreDuplicates : ${JSON.stringify(create.opts)}`);
+  else ok('création envoyée avec onConflict + ignoreDuplicates');
+
+  const row = supabase.goalRows.find((r) => r.category_id === cat.id);
+  if (!row || row.s_text !== 'Notre valeur partagée : la patience') fail('la ligne d\'objectif n\'a pas été créée');
+  else ok('ligne d\'objectif créée avec mon texte S');
+  if (root.textContent.includes(ui.smart.saved)) ok('message « Enregistré » affiché');
+  else fail('message « Enregistré » absent après la sauvegarde');
+  leave();
+}
+
+console.log('\n== 15. Avant un rechargement : écriture terminée + filtre updated_at brut ==');
+{
+  const cat = content.categories[0];
+  const RAW = '2026-03-04T05:06:07.123456+00:00';
+  const supabase = makeSupabase({
+    people: PEOPLE, status: VALIDATED_BOTH,
+    goalRow: {
+      couple_id: 'couple-1', category_id: cat.id,
+      s_text: 'Déjà écrit', m_text: null, a_text: null, r_text: null, deadline: null,
+      updated_by: 'user-2', updated_at: RAW
+    }
+  });
+  const { root, leave } = await renderSmartView(supabase, cat.id);
+  const [sTa, mTa] = textareas(root);
+  if (!sTa || !mTa) fail('formulaire incomplet');
+  else {
+    if (sTa.value !== 'Déjà écrit') fail(`texte S existant non affiché : « ${sTa.value} »`);
+    else ok('texte S déjà en base affiché');
+
+    await type(mTa, 'Un indicateur par semaine');
+    if (goalWrites(supabase).length) fail('écriture avant le rechargement demandé');
+    else ok('brouillon non encore envoyé (debounce)');
+
+    await flushWindow();
+    const upd = supabase.queries.find((q) => q.table === 'smart_goals' && q.op === 'update');
+    if (!upd) fail('aucune mise à jour envoyée avant le rechargement');
+    else if (upd.filters.updated_at !== RAW) {
+      fail(`filtre updated_at transformé : ${upd.filters.updated_at}`);
+    } else if (!upd.filters.updated_at.includes('.123456')) {
+      fail('microsecondes perdues dans le filtre updated_at');
+    } else ok(`filtre updated_at = chaîne brute « ${RAW} »`);
+
+    const row = supabase.goalRows[0];
+    if (row.m_text !== 'Un indicateur par semaine') fail('mon texte M non enregistré');
+    else if (row.s_text !== 'Déjà écrit') fail('mon écriture a effacé le texte S du partenaire');
+    else ok('seul mon champ M a changé, leur texte S est intact');
+    if (root.textContent.includes(ui.smart.saved)) ok('« Enregistré » affiché après l\'écriture');
+    else fail('message « Enregistré » absent');
+  }
+  leave();
+}
+
+console.log('\n== 16. Conflit sur le même champ : signalé, brouillon gardé ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({
+    people: PEOPLE, status: VALIDATED_BOTH,
+    goalRow: {
+      couple_id: 'couple-1', category_id: cat.id,
+      s_text: 'Texte initial', m_text: null, a_text: null, r_text: null, deadline: null,
+      updated_by: 'user-1', updated_at: '2026-03-04T05:06:07.123456+00:00'
+    }
+  });
+  const { root, leave } = await renderSmartView(supabase, cat.id);
+  const [sTa] = textareas(root);
+  await type(sTa, 'Mon texte à moi');
+
+  // Ton ou ta partenaire enregistre le MÊME champ juste avant moi.
+  supabase.goalRows[0].s_text = 'Leur texte à eux';
+  supabase.goalRows[0].updated_by = 'user-2';
+  supabase.goalRows[0].updated_at = '2026-07-07T07:07:07.999999+00:00';
+
+  await flushWindow();
+
+  if (root.textContent.includes(ui.smart.conflict)) ok('conflit signalé : « Nous avons rechargé sa version »');
+  else fail('message de conflit absent');
+  if (sTa.value !== 'Mon texte à moi') fail(`brouillon perdu : « ${sTa.value} »`);
+  else ok('mon brouillon est conservé à l\'écran');
+  if (supabase.goalRows[0].s_text !== 'Leur texte à eux') fail('leur texte a été écrasé');
+  else ok('leur version reste en base');
+  const writes = goalWrites(supabase);
+  if (writes.length !== 1) fail(`réessai silencieux : ${writes.length} écritures au lieu d'une seule`);
+  else ok('aucune réessai silencieux après le conflit');
+
+  // Quitter l'écran tente un dernier enregistrement : le brouillon en conflit
+  // doit rester bloqué (il attend ma prochaine saisie sur CE champ).
+  leave();
+  await sleep(20);
+  if (supabase.goalRows[0].s_text !== 'Leur texte à eux') {
+    fail('le brouillon en conflit a été écrit en quittant l\'écran');
+  } else ok('le brouillon en conflit n\'est jamais écrit, même en quittant');
+}
+
+console.log('\n== 17. Création simultanée : S de l\'un + M de l\'autre coexistent ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH });
+  const { root, leave } = await renderSmartView(supabase, cat.id);
+  const [sTa, mTa] = textareas(root);
+  await type(sTa, 'Mon S');
+  // Ton ou ta partenaire crée la ligne (son M) pendant que j'écris le mien.
+  supabase.goalRows.push({
+    couple_id: 'couple-1', category_id: cat.id,
+    s_text: null, m_text: 'Son M', a_text: null, r_text: null, deadline: null,
+    updated_by: 'user-2', updated_at: '2026-07-07T07:07:07.999999+00:00'
+  });
+
+  await flushWindow();
+
+  const row = supabase.goalRows.find((r) => r.category_id === cat.id);
+  if (!row) fail('la ligne d\'objectif a disparu');
+  else if (row.s_text !== 'Mon S' || row.m_text !== 'Son M') {
+    fail(`les deux textes doivent coexister : s_text=${JSON.stringify(row.s_text)}, m_text=${JSON.stringify(row.m_text)}`);
+  } else ok('les deux textes coexistent en base : mon S et son M');
+  if (root.textContent.includes(ui.smart.conflict)) fail('conflit affiché alors que les champs diffèrent');
+  else ok('aucun conflit : deux champs différents écrits côte à côte');
+  if (mTa.value !== 'Son M') fail(`son M n'apparaît pas à l'écran : « ${mTa.value} »`);
+  else ok('son M est affiché de mon côté');
+  const ops = goalWrites(supabase).map((q) => q.op);
+  if (JSON.stringify(ops) !== '["upsert","update"]') fail(`écritures [${ops}] au lieu de [upsert, update]`);
+  else ok('création en conflit puis mise à jour de retry réussie');
+  leave();
+}
+
+console.log('\n== 18. Objectif complet : confirmation et catégorie suivante ==');
+{
+  const cat = content.categories[0];
+  const complete = {
+    couple_id: 'couple-1', category_id: cat.id,
+    s_text: 'a', m_text: 'b', a_text: 'c', r_text: 'd', deadline: '2027-06-01',
+    updated_by: 'user-1', updated_at: '2026-03-04T05:06:07.123456+00:00'
+  };
+
+  const full = await renderSmartView(
+    makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH, goalRow: complete }), cat.id);
+  if (!byText(full.root, 'H2', ui.smart.completeTitle)) fail('objectif complet : titre absent');
+  else ok('objectif complet : confirmation affichée');
+  const next = byText(full.root, 'BUTTON', ui.smart.completeNext);
+  if (!next) fail('objectif complet : bouton « Catégorie suivante » absent');
+  else {
+    await click(next);
+    const routed = full.navigateLog.find((r) => r.name === 'smart' && r.categoryId === cat.id + 1);
+    if (routed) ok('« Catégorie suivante » mène à la catégorie suivante');
+    else fail(`« Catégorie suivante » mène à ${JSON.stringify(full.navigateLog)}`);
+  }
+  full.leave();
+
+  // Les 4 textes sans échéance : incomplet.
+  const noDate = await renderSmartView(
+    makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH, goalRow: { ...complete, deadline: null } }), cat.id);
+  if (byText(noDate.root, 'BUTTON', ui.smart.completeNext)) {
+    fail('complet affiché alors qu\'il manque l\'échéance');
+  } else ok('4 textes sans échéance : pas encore complet');
+  noDate.leave();
+
+  // Un texte d'espaces ne compte pas comme une réponse.
+  const blank = await renderSmartView(
+    makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH, goalRow: { ...complete, s_text: '    ' } }), cat.id);
+  if (byText(blank.root, 'BUTTON', ui.smart.completeNext)) {
+    fail('complet affiché avec un texte d\'espaces');
+  } else ok('un texte d\'espaces ne compte pas : objectif incomplet');
+  blank.leave();
+
+  // Dernière catégorie : la suite, c'est l'accueil.
+  const lastCat = content.categories[content.categories.length - 1];
+  const last = await renderSmartView(makeSupabase({
+    people: PEOPLE,
+    status: VALIDATED_BOTH.map((r) => ({ ...r, category_id: lastCat.id })),
+    goalRow: { ...complete, category_id: lastCat.id }
+  }), lastCat.id);
+  const lastBtn = byText(last.root, 'BUTTON', ui.smart.completeNext);
+  if (!lastBtn) fail('dernière catégorie : bouton suivant absent');
+  else {
+    await click(lastBtn);
+    if (last.navigateLog.some((r) => r.name === 'home')) {
+      ok('dernière catégorie : « Catégorie suivante » ramène à l\'accueil');
+    } else fail(`dernière catégorie : ${JSON.stringify(last.navigateLog)} au lieu de l'accueil`);
+  }
+  last.leave();
+}
+
+console.log('\n== 19. Échéance passée : rien n\'est envoyé ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH });
+  const { root, leave } = await renderSmartView(supabase, cat.id);
+  const date = dateInput(root);
+  if (!date) fail('champ d\'échéance absent');
+  else {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (date.getAttribute('min') !== today) fail(`min du champ : ${date.getAttribute('min')} au lieu de ${today}`);
+    else ok(`échéance : date minimale = aujourd'hui (${today})`);
+
+    await type(date, '2020-01-01');
+    if (!root.textContent.includes(ui.smart.deadlinePast)) fail('avertissement d\'échéance passée absent');
+    else ok('avertissement affiché pour une échéance passée');
+    if (date.value !== '') fail(`l'échéance passée reste affichée : « ${date.value} »`);
+    else ok('l\'échéance passée n\'est pas retenue');
+
+    await flushWindow();
+    const writes = goalWrites(supabase);
+    if (writes.length) fail(`échéance passée envoyée à la base : ${JSON.stringify(writes.map((q) => q.payload))}`);
+    else ok('aucune écriture envoyée pour une échéance passée');
+  }
+  leave();
+}
+
+console.log('\n== 19b. Échéance devenue passée entre la saisie et l\'écriture ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH });
+  const { root, leave } = await renderSmartView(supabase, cat.id);
+  const date = dateInput(root);
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 86400000);
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  await type(date, iso(tomorrow)); // valide au moment de la saisie
+  if (goalWrites(supabase).length) fail('écriture immédiate malgré le debounce');
+  else ok('échéance de demain acceptée à la saisie');
+
+  // La nuit tombe : trois jours plus tard, cette échéance est dans le passé.
+  const RealDate = Date;
+  try {
+    globalThis.Date = class extends RealDate {
+      constructor(...args) {
+        if (args.length) super(...args);
+        else super(RealDate.now() + 3 * 86400000);
+      }
+      static now() { return RealDate.now(); }
+    };
+    await flushWindow();
+  } finally {
+    globalThis.Date = RealDate;
+  }
+
+  const writes = goalWrites(supabase);
+  if (writes.length) fail(`échéance devenue passée envoyée : ${JSON.stringify(writes.map((q) => q.payload))}`);
+  else ok('échéance devenue passée avant l\'écriture : rien n\'est envoyé');
+  if (!root.textContent.includes(ui.smart.deadlinePast)) fail('avertissement absent au moment de l\'écriture');
+  else ok('avertissement affiché au moment de l\'écriture');
+  leave();
+}
+
+console.log('\n== 20. Objectif : catégorie non révélée → aucun écran, aucune lecture ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({
+    people: PEOPLE,
+    status: [VALIDATED_BOTH[0]], // seul mon validated_at : pas de révélation
+    goalRow: {
+      couple_id: 'couple-1', category_id: cat.id,
+      s_text: 'a', m_text: 'b', a_text: 'c', r_text: 'd', deadline: '2027-06-01',
+      updated_by: 'user-1', updated_at: '2026-03-04T05:06:07.123456+00:00'
+    }
+  });
+  const { root, navigateLog, leave } = await renderSmartView(supabase, cat.id);
+
+  if (textareas(root).length) fail('formulaire affiché alors que la catégorie n\'est pas révélée');
+  else ok('aucun formulaire affiché avant la révélation');
+  const read = supabase.queries.find((q) => q.table === 'smart_goals');
+  if (read) fail(`objectif lu avant la révélation : ${JSON.stringify(read)}`);
+  else ok('aucune lecture de smart_goals avant la révélation');
+  if (navigateLog.some((r) => r.name === 'home')) ok('renvoi vers l\'accueil');
+  else fail('l\'écran aurait dû renvoyer vers l\'accueil');
+  leave();
+}
+
+console.log('\n== 21. Realtime : texte du partenaire affiché, champ focalisé intact ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({
+    people: PEOPLE, status: VALIDATED_BOTH,
+    goalRow: {
+      couple_id: 'couple-1', category_id: cat.id,
+      s_text: null, m_text: null, a_text: null, r_text: null, deadline: null,
+      updated_by: 'user-1', updated_at: '2026-03-04T05:06:07.123456+00:00'
+    }
+  });
+  const { root, leave } = await renderSmartView(supabase, cat.id);
+  const [sTa, mTa] = textareas(root);
+  focusEl(sTa);
+  await type(sTa, 'Mon brouillon');
+
+  // Il écrit son M pendant que je reste focalisé(e) sur mon S.
+  supabase.goalRows[0].m_text = 'Son M';
+  supabase.goalRows[0].updated_at = '2026-07-07T07:07:07.111111+00:00';
+  supabase.fire('smart_goals');
+  await sleep(60);
+  if (mTa.value !== 'Son M') fail(`son M n'est pas apparu : « ${mTa.value} »`);
+  else ok('son texte M apparaît sur mon écran');
+  if (sTa.value !== 'Mon brouillon') fail(`mon champ focalisé a été écrasé : « ${sTa.value} »`);
+  else ok('mon champ focalisé conserve mon brouillon');
+
+  // Il touche à MON champ : mon brouillon doit survivre aussi.
+  supabase.goalRows[0].s_text = 'Son S';
+  supabase.goalRows[0].updated_at = '2026-07-07T07:07:07.222222+00:00';
+  supabase.fire('smart_goals');
+  await sleep(60);
+  if (sTa.value !== 'Mon brouillon') fail(`brouillon écrasé par l'événement Realtime : « ${sTa.value} »`);
+  else ok('l\'événement Realtime n\'écrase jamais le champ focalisé');
+
+  // Champ focalisé SANS brouillon : rien ne bouge tant que je regarde le champ,
+  // la valeur serveur est reprise au moment où je le quitte.
+  focusEl(mTa);
+  supabase.goalRows[0].m_text = 'Leur M v2';
+  supabase.goalRows[0].updated_at = '2026-07-07T07:07:07.333333+00:00';
+  supabase.fire('smart_goals');
+  await sleep(60);
+  if (mTa.value !== 'Son M') fail(`champ focalisé réécrit pendant la saisie : « ${mTa.value} »`);
+  else ok('champ focalisé sans brouillon : contenu intact pendant la saisie');
+  blurEl(mTa);
+  await sleep(10);
+  if (mTa.value !== 'Leur M v2') fail(`pas de resynchronisation après le blur : « ${mTa.value} »`);
+  else ok('après avoir quitté le champ, la valeur du partenaire reprend sa place');
+  leave();
+}
+
+console.log('\n== 22. Alignement : « Continuer vers notre objectif » ==');
+{
+  const cat = content.categories[0];
+  // Avec ma note : on continue vers l'objectif SMART de la catégorie.
+  const withNote = makeSupabase({
+    people: PEOPLE, status: VALIDATED_BOTH,
+    alignment: [{ couple_id: 'couple-1', user_id: 'user-1', category_id: cat.id, score: 7 }]
+  });
+  const a = await renderAlignmentView(withNote, cat.id);
+  const goalBtn = byText(a.root, 'BUTTON', ui.alignment.continueGoal);
+  if (!goalBtn) fail(`bouton « ${ui.alignment.continueGoal} » absent`);
+  else {
+    await click(goalBtn);
+    const routed = a.navigateLog.find((r) => r.name === 'smart');
+    if (routed && routed.categoryId === cat.id) ok('après ma note, on continue vers l\'objectif SMART');
+    else fail(`direction inattendue : ${JSON.stringify(a.navigateLog)}`);
+  }
+  a.leave();
+
+  // Sans ma note : on retourne simplement à l'accueil.
+  const noNote = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH });
+  const b = await renderAlignmentView(noNote, cat.id);
+  const backBtn = byText(b.root, 'BUTTON', ui.alignment.continue);
+  if (!backBtn) fail(`bouton « ${ui.alignment.continue} » absent avant ma note`);
+  else {
+    await click(backBtn);
+    if (b.navigateLog.some((r) => r.name === 'home')) ok('sans ma note : retour à l\'accueil');
+    else fail(`sans ma note : ${JSON.stringify(b.navigateLog)} au lieu de l'accueil`);
+  }
+  b.leave();
 }
 
 await server.close();

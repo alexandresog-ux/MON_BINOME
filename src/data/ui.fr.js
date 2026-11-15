@@ -61,14 +61,15 @@ export const ui = {
     intro: 'Réponds chacun de ton côté. La comparaison des réponses vient une fois que vous avez tous les deux validé une catégorie.',
     retry: 'Réessayer',
     openLabel: (title) => `Ouvrir la catégorie : ${title}`,
+    suggest: 'Prochaine étape suggérée',
     status: {
       todo: 'À commencer',
       progress: (n, total) => `${n} sur ${total} réponses enregistrées`,
       waiting: 'En attente de ton ou ta partenaire',
       partnerDone: 'Ton ou ta partenaire a déjà terminé : à toi de jouer !',
-      revealed: 'Réponses révélées',
-      myScore: 'Ta note est donnée',
-      compared: 'Notes comparées'
+      goalTodo: 'Objectif à écrire',
+      goalDoing: 'Objectif en cours',
+      goalDone: 'Objectif défini'
     }
   },
   waiting: {
@@ -110,9 +111,30 @@ export const ui = {
     refresh: 'Actualiser',
     retry: 'Réessayer',
     continue: 'Continuer',
+    continueGoal: 'Continuer vers notre objectif',
     me: 'Toi',
     theirs: 'Ton ou ta partenaire',
     scoreLabel: (n) => `Note ${n} sur 10`
+  },
+  smart: {
+    intro: 'Un objectif commun par catégorie : chacun(e) écrit de son côté, l\'écran se met à jour tout seul.',
+    notRevealed: 'Cette catégorie n\'est pas encore révélée : vous devez tous les deux avoir validé.',
+    unlinked: 'Votre couple n\'existe plus. Retour à l\'accueil.',
+    refresh: 'Actualiser',
+    retry: 'Réessayer',
+    saved: 'Enregistré',
+    saveError: 'Enregistrement impossible. Réessaie.',
+    refused: 'Écriture refusée pour le moment. Tes textes restent affichés : réessaie dans un instant.',
+    conflict: 'Ton ou ta partenaire vient de modifier l\'objectif. Nous avons rechargé sa version : reprends ta saisie quand tu veux.',
+    deadlineLabel: 'Notre échéance (date où nous faisons le point ensemble)',
+    deadlinePast: 'Choisis une date à partir d\'aujourd\'hui.',
+    counter: (n) => `${n} / 2000`,
+    lastBy: (name) => `Dernière modification par ${name}.`,
+    lastUnknown: 'Dernière modification enregistrée.',
+    completeTitle: 'Objectif complet',
+    complete: 'Vos 4 réponses et votre échéance sont enregistrées. Vous pouvez les modifier quand vous voulez.',
+    completeNext: 'Catégorie suivante',
+    seeAnswers: 'Voir nos réponses'
   },
   questions: {
     backToCategories: 'Retour aux catégories',

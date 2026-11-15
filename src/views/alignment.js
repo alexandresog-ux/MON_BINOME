@@ -119,7 +119,10 @@ export async function renderAlignment(root, ctx, categoryId) {
     }
     kids.push(h('div', { class: 'row' },
       h('button', { class: 'btn secondary', type: 'button', onclick: () => load() }, t.refresh),
-      h('button', { class: 'btn', type: 'button', onclick: () => go({ name: 'home' }) }, t.continue)));
+      h('button', {
+        class: 'btn', type: 'button',
+        onclick: () => go(mine ? { name: 'smart', categoryId: catId } : { name: 'home' })
+      }, mine ? t.continueGoal : t.continue)));
     body.replaceChildren(...kids);
     info.textContent = !compared && mine ? t.recorded : '';
   }
