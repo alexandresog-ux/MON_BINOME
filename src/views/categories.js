@@ -22,12 +22,14 @@ export async function renderCategories(root, ctx, info = {}) {
   async function load() {
     list.replaceChildren(h('p', { class: 'muted' }, ui.common.loading));
     // ⚠️ Mes réponses uniquement (RLS + filtre). Statut : les deux partenaires.
-    const [statusRes, answersRes] = await Promise.all([
+    // Les notes se lisent par couple, sans filtre user_id (la RLS décide).
+    const [statusRes, answersRes, alignRes] = await Promise.all([
       supabase.from('category_status').select('category_id, user_id, validated_at').eq('couple_id', coupleId),
       supabase.from('answers').select('category_id, question_id')
-        .eq('couple_id', coupleId).eq('user_id', uid)
+        .eq('couple_id', coupleId).eq('user_id', uid),
+      supabase.from('alignment').select('category_id, user_id').eq('couple_id', coupleId)
     ]);
-    if (statusRes.error || answersRes.error) {
+    if (statusRes.error || answersRes.error || alignRes.error) {
       list.replaceChildren(
         h('p', { class: 'msg' }, ui.errors.generic),
         h('button', { class: 'link', type: 'button', onclick: load }, t.retry));
@@ -45,6 +47,14 @@ export async function renderCategories(root, ctx, info = {}) {
       if (row.user_id === uid) validatedByMe.add(row.category_id);
       else validatedByPartner.add(row.category_id);
     }
+    // La note du partenaire n'est lisible que si les deux ont noté : une ligne
+    // qui vient d'eux signifie donc que les deux notes sont comparées.
+    const notedByMe = new Set();
+    const compared = new Set();
+    for (const row of alignRes.data ?? []) {
+      if (row.user_id === uid) notedByMe.add(row.category_id);
+      else compared.add(row.category_id);
+    }
 
     list.replaceChildren(...content.categories.map((cat) => {
       const answered = answeredCount.get(cat.id) ?? 0;
@@ -53,7 +63,11 @@ export async function renderCategories(root, ctx, info = {}) {
       const partnerValidated = validatedByPartner.has(cat.id);
 
       let statusText;
-      if (iValidated && partnerValidated) statusText = t.status.both;
+      if (iValidated && partnerValidated) {
+        statusText = notedByMe.has(cat.id) && compared.has(cat.id)
+          ? t.status.compared
+          : (notedByMe.has(cat.id) ? t.status.myScore : t.status.revealed);
+      }
       else if (iValidated) statusText = t.status.waiting;
       else if (partnerValidated) statusText = t.status.partnerDone;
       else if (answered > 0) statusText = t.status.progress(answered, total);

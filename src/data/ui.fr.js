@@ -66,7 +66,9 @@ export const ui = {
       progress: (n, total) => `${n} sur ${total} réponses enregistrées`,
       waiting: 'En attente de ton ou ta partenaire',
       partnerDone: 'Ton ou ta partenaire a déjà terminé : à toi de jouer !',
-      both: 'Les deux ont validé · voir vos réponses côte à côte'
+      revealed: 'Réponses révélées',
+      myScore: 'Ta note est donnée',
+      compared: 'Notes comparées'
     }
   },
   waiting: {
@@ -94,6 +96,23 @@ export const ui = {
     theirs: 'Ton ou ta partenaire',
     skipped: 'Passée',
     continue: 'Continuer'
+  },
+  alignment: {
+    title: 'Tes notes d\'alignement',
+    legendMin: '1 = pas du tout',
+    legendMax: '10 = tout à fait',
+    recorded: 'Ta note est enregistrée. Elle sera comparée dès que ton ou ta partenaire aura donné la sienne.',
+    locked: 'Vos notes sont verrouillées, vous les avez toutes les deux données.',
+    encouragement: 'Vous êtes proches sur ce thème : une belle base pour en parler et avancer ensemble.',
+    saveError: 'Enregistrement impossible. Réessaie.',
+    notRevealed: 'Cette catégorie n\'est pas encore révélée : vous devez tous les deux avoir validé.',
+    unlinked: 'Votre couple n\'existe plus. Retour à l\'accueil.',
+    refresh: 'Actualiser',
+    retry: 'Réessayer',
+    continue: 'Continuer',
+    me: 'Toi',
+    theirs: 'Ton ou ta partenaire',
+    scoreLabel: (n) => `Note ${n} sur 10`
   },
   questions: {
     backToCategories: 'Retour aux catégories',

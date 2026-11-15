@@ -108,8 +108,12 @@ export async function renderReveal(root, ctx, categoryId) {
           answerBlock(myName, mineRows.get(q.id)),
           answerBlock(partnerName, theirRows.get(q.id)))));
     }
+    // Lot 4 fera suivre l'objectif SMART : pour l'instant on passe aux notes.
     kids.push(h('p', { class: 'center' },
-      h('button', { class: 'btn', type: 'button', onclick: () => go({ name: 'home' }) }, t.continue)));
+      h('button', {
+        class: 'btn', type: 'button',
+        onclick: () => go({ name: 'alignment', categoryId: catId })
+      }, t.continue)));
     body.replaceChildren(...kids);
     attempts = 0;
   }

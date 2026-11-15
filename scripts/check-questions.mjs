@@ -42,9 +42,17 @@ class MiniEl extends MiniNode {
   set textContent(v) { this.childNodes = [new MiniText(v)]; }
 }
 globalThis.Node = MiniNode;
+// Mini-document : createElement/createTextNode + les listeners dont les vues
+// ont besoin (visibilitychange pour la resynchronisation d'écran).
+const docListeners = {};
 globalThis.document = {
   createElement: (t) => new MiniEl(t),
-  createTextNode: (t) => new MiniText(t)
+  createTextNode: (t) => new MiniText(t),
+  visibilityState: 'visible',
+  addEventListener(type, fn) { (docListeners[type] ??= []).push(fn); },
+  removeEventListener(type, fn) {
+    docListeners[type] = (docListeners[type] ?? []).filter((f) => f !== fn);
+  }
 };
 // Mini-window : addEventListener/removeEventListener/dispatchEvent réels, pour
 // tester l'événement « app:before-reload » (sauvegarde avant un rechargement).
@@ -89,14 +97,42 @@ function makeSupabase(opts = {}) {
   const queries = [];
   const status = opts.status ?? [];
   const people = opts.people ?? [];
+  const alignRows = [...(opts.alignment ?? [])];
+  const MY_ID = 'user-1';
   const resolve = (s) => {
-    queries.push({ table: s.table, op: s.op, filters: { ...s.filters } });
+    queries.push({ table: s.table, op: s.op, filters: { ...s.filters }, payload: s.payload });
     if (s.table === 'couple_members') {
       const coupleId = opts.couple === undefined ? 'couple-1' : opts.couple;
       return Promise.resolve({ data: coupleId ? [{ couple_id: coupleId }] : [], error: null });
     }
     if (s.table === 'category_status') return Promise.resolve({ data: status, error: null });
     if (s.table === 'profiles') return Promise.resolve({ data: people, error: null });
+    if (s.table === 'alignment') {
+      if (s.op === 'upsert') {
+        // opts.refuse simule un upsert refusé par les politiques RLS.
+        if (opts.refuse === 'error') {
+          return Promise.resolve({ data: [], error: { code: '42501', message: 'row-level security policy' } });
+        }
+        if (opts.refuse === 'empty') return Promise.resolve({ data: [], error: null });
+        const p = s.payload;
+        if (!Number.isInteger(p.score) || p.score < 1 || p.score > 10) {
+          return Promise.resolve({ data: null, error: { code: '23514', message: 'alignment_score_check' } });
+        }
+        const i = alignRows.findIndex((r) => r.user_id === p.user_id && r.category_id === p.category_id);
+        const row = { couple_id: p.couple_id, user_id: p.user_id, category_id: p.category_id, score: p.score };
+        if (i >= 0) alignRows[i] = row; else alignRows.push(row);
+        return Promise.resolve({ data: [row], error: null });
+      }
+      // Politique alignment_select : mes lignes toujours ; celles du partenaire
+      // seulement quand les deux lignes de la catégorie existent (RLS).
+      const scoped = alignRows.filter((r) =>
+        Object.entries(s.filters).every(([k, v]) => r[k] === v));
+      const revealed = scoped.length === 2;
+      return Promise.resolve({
+        data: scoped.filter((r) => r.user_id === MY_ID || revealed),
+        error: null
+      });
+    }
     if (s.table === 'answers') {
       if (s.op === 'upsert') {
         const p = s.payload;
@@ -133,6 +169,13 @@ function makeSupabase(opts = {}) {
       }
       return Promise.resolve({ data: { ok: true }, error: null });
     },
+    // Canal Realtime factice : les vues s'abonnent, les tests pilotent l'état
+    // via le rechargement, pas via des événements.
+    channel() {
+      const ch = { on: () => ch, subscribe: () => ch };
+      return ch;
+    },
+    removeChannel() {},
     rows, log, queries
   };
 }
@@ -145,6 +188,7 @@ const server = await createServer({
 });
 const { renderQuestions } = await server.ssrLoadModule('/src/views/questions.js');
 const { renderReveal } = await server.ssrLoadModule('/src/views/reveal.js');
+const { renderAlignment } = await server.ssrLoadModule('/src/views/alignment.js');
 const { ui } = await server.ssrLoadModule('/src/data/ui.fr.js');
 const content = (await server.ssrLoadModule('/src/data/questions.fr.json')).default;
 
@@ -181,6 +225,21 @@ async function renderRevealView(supabase, categoryId) {
     onLeave: (fn) => { leave = fn; }
   };
   await renderReveal(root, ctx, categoryId);
+  return { root, navigateLog, leave };
+}
+
+// Rendu de l'écran de notes d'alignement (ticker Realtime/20 s inclus).
+async function renderAlignmentView(supabase, categoryId) {
+  const root = new MiniEl('div');
+  const navigateLog = [];
+  let leave = () => {};
+  const ctx = {
+    supabase,
+    session: { user: { id: 'user-1' } },
+    navigate: (r) => navigateLog.push(r),
+    onLeave: (fn) => { leave = fn; }
+  };
+  await renderAlignment(root, ctx, categoryId);
   return { root, navigateLog, leave };
 }
 
@@ -425,8 +484,9 @@ console.log('\n== 7. Révélation : 8 questions, deux réponses, deux prénoms, 
   if (!next) fail(`bouton « ${ui.reveal.continue} » absent`);
   else {
     await click(next);
-    if (navigateLog.some((r) => r.name === 'home')) ok('« Continuer » ramène aux catégories');
-    else fail('« Continuer » ne ramène pas aux catégories');
+    const routed = navigateLog.find((r) => r.name === 'alignment');
+    if (routed && routed.categoryId === cat.id) ok('« Continuer » mène à l\'écran d\'alignement');
+    else fail(`« Continuer » mène à ${JSON.stringify(navigateLog)} au lieu de l'alignement`);
   }
   leave();
 }
@@ -460,6 +520,144 @@ console.log('\n== 8. Révélation : statut révélé mais une seule moitié → 
   if (text.includes(ui.reveal.arriving)) ok('état de chargement affiché (rechargement)');
   else fail('état de chargement absent sur des données incomplètes');
   leave();
+}
+
+console.log('\n== 9. Alignement : une seule note donnée, rien sur le partenaire ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({
+    people: PEOPLE,
+    status: VALIDATED_BOTH,
+    // RLS : je n'ai que ma ligne, celle du partenaire n'existe pas encore.
+    alignment: [{ couple_id: 'couple-1', user_id: 'user-1', category_id: cat.id, score: 7 }]
+  });
+  const { root, leave } = await renderAlignmentView(supabase, cat.id);
+  const text = root.textContent;
+
+  if (text.includes(ui.alignment.recorded)) ok('« Ta note est enregistrée… » affiché');
+  else fail('message « Ta note est enregistrée… » absent');
+
+  if (text.includes('Sam')) fail('le partenaire est nommé alors que la comparaison n\'est pas possible');
+  else ok('aucune information sur le partenaire');
+
+  if (/pas encore noté/i.test(text)) fail('le message laisse entendre que le partenaire n\'a pas encore noté');
+  else ok('aucun jugement sur la note du partenaire');
+
+  const read = supabase.queries.find((q) => q.table === 'alignment' && q.op === 'select');
+  if (!read) fail('aucune lecture des notes');
+  else if ('user_id' in read.filters) fail(`notes filtrées par user_id : ${JSON.stringify(read.filters)}`);
+  else ok('notes lues par couple + catégorie, sans filtre user_id');
+
+  const current = walk(root).find((e) => e.tagName === 'BUTTON' && String(e.className).includes('current'));
+  if (!current || current.textContent !== '7') fail('ma note (7) n\'est pas sélectionnée');
+  else ok('ma note (7) reste affichée et modifiable');
+  leave();
+}
+
+console.log('\n== 10. Alignement : les deux notes et les deux prénoms ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({
+    people: PEOPLE,
+    status: VALIDATED_BOTH,
+    alignment: [
+      { couple_id: 'couple-1', user_id: 'user-1', category_id: cat.id, score: 8 },
+      { couple_id: 'couple-1', user_id: 'user-2', category_id: cat.id, score: 7 }
+    ]
+  });
+  const { root, leave } = await renderAlignmentView(supabase, cat.id);
+  const text = root.textContent;
+  const whos = walk(root).filter((e) => String(e.className).split(' ').includes('who'));
+  const vals = walk(root).filter((e) => String(e.className).split(' ').includes('val'));
+  const got = whos.map((e) => e.textContent).join('|');
+  if (got !== 'Alex|Sam') fail(`prénoms [${got}] au lieu de [Alex|Sam]`);
+  else ok('les deux prénoms affichés côte à côte');
+  if (vals.map((e) => e.textContent).join('|') !== '8|7') {
+    fail(`notes [${vals.map((e) => e.textContent).join('|')}] au lieu de [8|7]`);
+  } else ok('les deux notes affichées côte à côte (8 et 7)');
+
+  if (/compatibilit|gagnant|perdant|mauvais/i.test(text)) {
+    fail('vocabulaire de compétition ou de jugement dans la comparaison');
+  } else ok('ton neutre : aucune note de « compatibilité », ni gagnant/perdant');
+  leave();
+}
+
+console.log('\n== 11. Alignement : écart de 3 (invitation) ou de 2 (encouragement) ==');
+{
+  const cat = content.categories[0];
+  const build = (a, b) => makeSupabase({
+    people: PEOPLE,
+    status: VALIDATED_BOTH,
+    alignment: [
+      { couple_id: 'couple-1', user_id: 'user-1', category_id: cat.id, score: a },
+      { couple_id: 'couple-1', user_id: 'user-2', category_id: cat.id, score: b }
+    ]
+  });
+
+  const big = await renderAlignmentView(build(7, 4), cat.id);
+  if (big.root.textContent.includes(content.common.alignment.deep_talk_message)) {
+    ok('écart de 3 : invitation à la conversation approfondie affichée');
+  } else fail('écart de 3 : message d\'invitation absent');
+  big.leave();
+
+  const small = await renderAlignmentView(build(7, 5), cat.id);
+  if (small.root.textContent.includes(content.common.alignment.deep_talk_message)) {
+    fail('écart de 2 : message d\'invitation affiché à tort');
+  } else ok('écart de 2 : pas de message d\'invitation');
+  if (small.root.textContent.includes(ui.alignment.encouragement)) {
+    ok('écart de 2 : encouragement affiché');
+  } else fail('écart de 2 : encouragement absent');
+  small.leave();
+}
+
+console.log('\n== 12. Alignement : note invalide = rien n\'est envoyé à la base ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({
+    people: PEOPLE,
+    status: VALIDATED_BOTH,
+    alignment: [{ couple_id: 'couple-1', user_id: 'user-1', category_id: cat.id, score: 6 }]
+  });
+  const { root, leave } = await renderAlignmentView(supabase, cat.id);
+  const btns = walk(root).filter((e) => e.tagName === 'BUTTON' && String(e.className).includes('score'));
+  if (btns.length !== 10) fail(`attendu 10 boutons de note, obtenu ${btns.length}`);
+  else {
+    ok('10 boutons de note');
+    // On force une valeur invalide dans le bouton (DOM trafiqué) : la validation
+    // côté client doit refuser l'envoi, la base ne doit jamais la voir.
+    for (const bad of ['0', '11', '3.5', 'pas-un-nombre']) {
+      btns[0].textContent = bad;
+      await click(btns[0]);
+    }
+    const sent = supabase.queries.filter((q) => q.table === 'alignment' && q.op === 'upsert');
+    if (sent.length) {
+      fail(`note invalide envoyée à la base : [${sent.map((q) => q.payload?.score)}]`);
+    } else ok('0, 11, 3.5, texte : rien n\'est envoyé à la base');
+  }
+  leave();
+}
+
+console.log('\n== 13. Alignement : upsert refusé → verrouillage, sans exception ==');
+{
+  const cat = content.categories[0];
+  const notes = [
+    { couple_id: 'couple-1', user_id: 'user-1', category_id: cat.id, score: 5 },
+    { couple_id: 'couple-1', user_id: 'user-2', category_id: cat.id, score: 5 }
+  ];
+  // 'error' = 42501 ; 'empty' = 0 ligne retournée (les deux cas du contrat).
+  for (const refuse of ['error', 'empty']) {
+    const supabase = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH, alignment: notes, refuse });
+    const { root, leave } = await renderAlignmentView(supabase, cat.id);
+    const btn = walk(root).find((e) => e.tagName === 'BUTTON' && String(e.className).includes('score'));
+    let threw = null;
+    // L'état local peut être périmé (boutons encore actifs) : la base tranche.
+    try { await click(btn); } catch (err) { threw = err; }
+    if (threw) fail(`upsert refusé (${refuse}) : exception non gérée — ${threw.message}`);
+    else if (!root.textContent.includes(ui.alignment.locked)) {
+      fail(`upsert refusé (${refuse}) : message de verrouillage absent`);
+    } else ok(`upsert refusé (${refuse}) : message de verrouillage affiché`);
+    leave();
+  }
 }
 
 await server.close();
