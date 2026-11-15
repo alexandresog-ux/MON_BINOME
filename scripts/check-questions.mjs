@@ -121,6 +121,7 @@ function makeSupabase(opts = {}) {
   const log = [];
   const queries = [];
   const channels = [];
+  const rpcs = [];
   const status = opts.status ?? [];
   const people = opts.people ?? [];
   const alignRows = [...(opts.alignment ?? [])];
@@ -237,6 +238,7 @@ function makeSupabase(opts = {}) {
   return {
     from,
     rpc(name) {
+      rpcs.push(name);
       if (name === 'validate_category') {
         return Promise.resolve({ data: { ok: true, revealed: false }, error: null });
       }
@@ -264,7 +266,7 @@ function makeSupabase(opts = {}) {
         }
       }
     },
-    rows, goalRows, log, queries
+    rows, goalRows, log, queries, rpcs
   };
 }
 
@@ -278,6 +280,7 @@ const { renderQuestions } = await server.ssrLoadModule('/src/views/questions.js'
 const { renderReveal } = await server.ssrLoadModule('/src/views/reveal.js');
 const { renderAlignment } = await server.ssrLoadModule('/src/views/alignment.js');
 const { renderSmart } = await server.ssrLoadModule('/src/views/smart.js');
+const { createActivity } = await server.ssrLoadModule('/src/activity.js');
 const { ui } = await server.ssrLoadModule('/src/data/ui.fr.js');
 const content = (await server.ssrLoadModule('/src/data/questions.fr.json')).default;
 
@@ -1132,6 +1135,107 @@ console.log('\n== 22. Alignement : « Continuer vers notre objectif » ==');
     else fail(`sans ma note : ${JSON.stringify(b.navigateLog)} au lieu de l'accueil`);
   }
   b.leave();
+}
+
+console.log('\n== 23. Suivi d\'activité : ouverture, retour d\'onglet, retour réseau ==');
+{
+  // Ouverture sans session : aucun appel.
+  const noSession = createActivity();
+  const sb0 = makeSupabase();
+  let sessionOn = false;
+  const docL = {}; const winL = {};
+  const fakeDoc = {
+    visibilityState: 'hidden',
+    addEventListener(type, fn) { (docL[type] ??= []).push(fn); }
+  };
+  const fakeWin = {
+    addEventListener(type, fn) { (winL[type] ??= []).push(fn); }
+  };
+  noSession.start({ supabase: sb0, hasSession: () => sessionOn, doc: fakeDoc, win: fakeWin });
+  if (sb0.rpcs.length !== 0) {
+    fail(`ouverture sans session : ${sb0.rpcs.length} appel(s) à touch_activity`);
+  }
+  // Session présente : le retour d'onglet appelle une première fois…
+  sessionOn = true;
+  fakeDoc.visibilityState = 'visible';
+  for (const fn of docL.visibilitychange ?? []) fn();
+  if (sb0.rpcs.length !== 1 || sb0.rpcs[0] !== 'touch_activity') {
+    fail(`retour d\'onglet : ${JSON.stringify(sb0.rpcs)} au lieu d\'un appel à touch_activity`);
+  } else {
+    // …puis le retour du réseau, dans la même demi-heure : plus rien (30 min).
+    for (const fn of winL.online ?? []) fn();
+    if (sb0.rpcs.length !== 1) {
+      fail(`deux ouvertures rapprochées : ${sb0.rpcs.length} appels au lieu d\'1`);
+    } else {
+      ok('un seul appel à touch_activity sur deux ouvertures rapprochées (limite 30 min)');
+    }
+  }
+
+  // Une instance neuve (30 min écoulées) : le retour du réseau appelle bien.
+  const later = createActivity();
+  const sb1 = makeSupabase();
+  let lateSession = false;
+  const doc2 = {}; const win2 = {};
+  const fakeDoc2 = {
+    visibilityState: 'visible',
+    addEventListener(type, fn) { (doc2[type] ??= []).push(fn); }
+  };
+  const fakeWin2 = {
+    addEventListener(type, fn) { (win2[type] ??= []).push(fn); }
+  };
+  later.start({ supabase: sb1, hasSession: () => lateSession, doc: fakeDoc2, win: fakeWin2 });
+  lateSession = true;
+  for (const fn of win2.online ?? []) fn();
+  if (sb1.rpcs.length === 1 && sb1.rpcs[0] === 'touch_activity') {
+    ok('retour du réseau : l\'écoute « online » déclenche touch_activity');
+  } else {
+    fail(`retour du réseau : ${JSON.stringify(sb1.rpcs)} au lieu d\'un appel à touch_activity`);
+  }
+}
+
+console.log('\n== 24. Suivi d\'activité : aucun appel sans session ==');
+{
+  const activity = createActivity();
+  const supabase = makeSupabase();
+  const a = activity.touch(supabase, () => false);
+  const b = activity.touch(supabase, null);
+  if (a || b || supabase.rpcs.length !== 0) {
+    fail(`sans session : ${supabase.rpcs.length} appel(s) tenté(s) (touch a renvoyé ${a}, ${b})`);
+  } else {
+    ok('aucun appel sans session (y compris sans fonction de session)');
+  }
+  if (!activity.touch(supabase, () => true)) fail('avec session : appel non tenté');
+  else if (supabase.rpcs.length !== 1) fail(`avec session : ${JSON.stringify(supabase.rpcs)}`);
+  else ok('avec session : touch_activity appelé une fois');
+}
+
+console.log('\n== 25. touch_activity : échec silencieux, le rendu continue ==');
+{
+  // La fonction n'existe pas : l\'exception ne doit pas sortir de touch().
+  const supabase = makeSupabase();
+  supabase.rpc = () => { throw new Error('function public.touch_activity() does not exist'); };
+  const activity = createActivity();
+  let threw = false;
+  try { activity.touch(supabase, () => true); } catch { threw = true; }
+  if (threw) fail('touch_activity : exception propagée alors que la fonction n\'existe pas');
+  else ok('fonction absente (exception) : rien ne sort de touch_activity');
+
+  // Réseau qui rejette : aucun rejet de promesse non géré.
+  const rejets = [];
+  const onRej = (err) => rejets.push(err);
+  process.on('unhandledRejection', onRej);
+  const sb2 = makeSupabase();
+  sb2.rpc = () => Promise.reject(new Error('function public.touch_activity() does not exist'));
+  createActivity().touch(sb2, () => true);
+  await sleep(30);
+  process.removeListener('unhandledRejection', onRej);
+  if (rejets.length) fail(`touch_activity : ${rejets.length} rejet(s) de promesse non géré(s)`);
+  else ok('réseau qui rejette : promesse gérée, aucun rejet non géré');
+
+  // Le rendu du jeu reprend avec le même client dont la RPC est cassée.
+  const root = await renderCategory(content.categories[0], supabase);
+  if (questionEl(root)) ok('échec silencieux : le rendu des questions continue normalement');
+  else fail('le rendu est interrompu après l\'échec de touch_activity');
 }
 
 await server.close();

@@ -10,6 +10,7 @@ import { renderWaiting } from './views/waiting.js';
 import { renderReveal } from './views/reveal.js';
 import { renderAlignment } from './views/alignment.js';
 import { renderSmart } from './views/smart.js';
+import { createActivity } from './activity.js';
 import { installBanner } from './views/installBanner.js';
 import { updateBanner } from './views/updateBanner.js';
 
@@ -90,6 +91,11 @@ if (!supabaseReady) {
   // On ne re-rend que si l'utilisateur change (supabase-js renvoie SIGNED_IN
   // à chaque retour sur l'onglet, ce qui effacerait les formulaires).
   let currentUid;
+  const hasSession = () => Boolean(currentSession);
+  // Suivi d'activité : ouverture, retour d'onglet (visibilitychange), retour
+  // du réseau (online) — au plus un appel toutes les 30 minutes.
+  const activity = createActivity();
+  activity.start({ supabase, hasSession });
   supabase.auth.onAuthStateChange((_event, session) => {
     const uid = session?.user?.id ?? null;
     if (uid === currentUid) return;
@@ -98,5 +104,8 @@ if (!supabaseReady) {
     route = { name: 'home' };
     // setTimeout : ne jamais appeler supabase (await) directement dans ce callback (risque de blocage).
     setTimeout(() => render(), 0);
+    // Après le rendu : touch_activity en échec silencieux ne doit jamais
+    // interrompre le jeu (exceptions attrapées dans touch()).
+    setTimeout(() => { activity.touch(supabase, hasSession); }, 0);
   });
 }
