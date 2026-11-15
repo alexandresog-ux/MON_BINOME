@@ -81,7 +81,7 @@ export async function renderWaiting(root, ctx, categoryId) {
     const mine = rows.some((r) => r.user_id === uid && r.validated_at);
     const theirs = rows.some((r) => r.user_id !== uid && r.validated_at);
     if (!mine) { go({ name: 'home', notice: t.notValidated }); return; }
-    if (theirs) { go({ name: 'home', notice: t.bothValidated }); return; }
+    if (theirs) { go({ name: 'reveal', categoryId: catId }); return; }
     mineEl.textContent = t.mineOk;
     partnerEl.textContent = t.partnerPending;
     msg.textContent = navigator.onLine ? t.waitingFor : t.offline;

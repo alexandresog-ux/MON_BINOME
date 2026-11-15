@@ -80,14 +80,23 @@ const byTextStart = (root, tag, prefix) =>
   walk(root).find((e) => e.tagName === tag && e.textContent.trim().startsWith(prefix));
 
 // --- Stub Supabase --------------------------------------------------
-function makeSupabase() {
+// opts.status : lignes rendues par `category_status` ; opts.people : lignes
+// rendues par `profiles` ; opts.couple : couple_id rendu par `couple_members`
+// (null = délié). `queries` trace chaque lecture pour vérifier ce qui est lu.
+function makeSupabase(opts = {}) {
   const rows = [];
   const log = [];
+  const queries = [];
+  const status = opts.status ?? [];
+  const people = opts.people ?? [];
   const resolve = (s) => {
+    queries.push({ table: s.table, op: s.op, filters: { ...s.filters } });
     if (s.table === 'couple_members') {
-      return Promise.resolve({ data: [{ couple_id: 'couple-1' }], error: null });
+      const coupleId = opts.couple === undefined ? 'couple-1' : opts.couple;
+      return Promise.resolve({ data: coupleId ? [{ couple_id: coupleId }] : [], error: null });
     }
-    if (s.table === 'category_status') return Promise.resolve({ data: [], error: null });
+    if (s.table === 'category_status') return Promise.resolve({ data: status, error: null });
+    if (s.table === 'profiles') return Promise.resolve({ data: people, error: null });
     if (s.table === 'answers') {
       if (s.op === 'upsert') {
         const p = s.payload;
@@ -124,7 +133,7 @@ function makeSupabase() {
       }
       return Promise.resolve({ data: { ok: true }, error: null });
     },
-    rows, log
+    rows, log, queries
   };
 }
 
@@ -135,6 +144,7 @@ const server = await createServer({
   logLevel: 'error'
 });
 const { renderQuestions } = await server.ssrLoadModule('/src/views/questions.js');
+const { renderReveal } = await server.ssrLoadModule('/src/views/reveal.js');
 const { ui } = await server.ssrLoadModule('/src/data/ui.fr.js');
 const content = (await server.ssrLoadModule('/src/data/questions.fr.json')).default;
 
@@ -158,6 +168,50 @@ async function renderCategory(cat, supabase, navigateLog = []) {
 // Élément qui porte réellement l'énoncé à l'écran (h2.question).
 const questionEl = (root) =>
   walk(root).find((e) => String(e.className ?? '').split(' ').includes('question'));
+
+// Rendu de l'écran de révélation. `leave` annule les rechargements programmés.
+async function renderRevealView(supabase, categoryId) {
+  const root = new MiniEl('div');
+  const navigateLog = [];
+  let leave = () => {};
+  const ctx = {
+    supabase,
+    session: { user: { id: 'user-1' } },
+    navigate: (r) => navigateLog.push(r),
+    onLeave: (fn) => { leave = fn; }
+  };
+  await renderReveal(root, ctx, categoryId);
+  return { root, navigateLog, leave };
+}
+
+const PEOPLE = [
+  { id: 'user-1', display_name: 'Alex' },
+  { id: 'user-2', display_name: 'Sam' }
+];
+const VALIDATED_BOTH = [
+  { couple_id: 'couple-1', user_id: 'user-1', category_id: 1, validated_at: '2026-01-01T00:00:00Z' },
+  { couple_id: 'couple-1', user_id: 'user-2', category_id: 1, validated_at: '2026-01-02T00:00:00Z' }
+];
+
+// Remplit les réponses des deux utilisateurs. `skip` = index (0-based) de la
+// question passée, -1 = aucune ; `theirs = null` = aucune ligne du partenaire.
+function fillAnswers(supabase, cat, mine, theirs) {
+  cat.questions.forEach((q, i) => {
+    const mineSkip = Boolean(mine) && i === mine.skip;
+    supabase.rows.push({
+      couple_id: 'couple-1', user_id: 'user-1', category_id: cat.id, question_id: q.id,
+      body: mineSkip ? null : `Ma réponse ${i + 1}`,
+      skipped: mineSkip
+    });
+    if (!theirs) return;
+    const theirSkip = i === theirs.skip;
+    supabase.rows.push({
+      couple_id: 'couple-1', user_id: 'user-2', category_id: cat.id, question_id: q.id,
+      body: theirSkip ? null : `Sa réponse ${i + 1}`,
+      skipped: theirSkip
+    });
+  });
+}
 
 console.log('\n== 1. Énoncé affiché = exactement celui de l\'index courant (12 × 8) ==');
 for (const cat of content.categories) {
@@ -300,6 +354,112 @@ console.log('\n== 5. Avant un rechargement demandé : la sauvegarde en cours est
   } else {
     fail(`sauvegarde non terminée avant le rechargement (lignes : [${supabase.rows.map((r) => r.question_id)}])`);
   }
+}
+
+console.log('\n== 6. Révélation : bloquée tant que les deux n\'ont pas validé ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({
+    people: PEOPLE,
+    status: [VALIDATED_BOTH[0]] // seul mon validated_at : la révélation n'est pas ouverte
+  });
+  // Les réponses du partenaire sont pourtant présentes : elles ne doivent
+  // ni être lues, ni apparaître.
+  fillAnswers(supabase, cat, { skip: -1 }, { skip: -1 });
+  const { root, navigateLog, leave } = await renderRevealView(supabase, cat.id);
+
+  if (root.textContent.includes('Sa réponse 1')) {
+    fail('révélation : réponse du partenaire affichée avant la révélation');
+  } else ok('aucune réponse du partenaire affichée avant la révélation');
+
+  const read = supabase.queries.find((q) => q.table === 'answers' && q.op === 'select');
+  if (read) fail('révélation : les réponses ont été lues alors que la catégorie n\'est pas révélée');
+  else ok('aucune lecture des réponses avant la révélation');
+
+  if (navigateLog.some((r) => r.name === 'home')) ok('renvoi vers l\'accueil');
+  else fail('la révélation aurait dû renvoyer vers l\'accueil tant qu\'elle n\'est pas ouverte');
+  leave();
+}
+
+console.log('\n== 7. Révélation : 8 questions, deux réponses, deux prénoms, « passée » ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH });
+  fillAnswers(supabase, cat, { skip: 2 }, { skip: 4 }); // q3 pour moi, q5 pour le partenaire
+  const { root, navigateLog, leave } = await renderRevealView(supabase, cat.id);
+
+  const statements = new Set(cat.questions.map((q) => q.text));
+  const shown = walk(root).filter((e) => e.tagName === 'H2' && statements.has(e.textContent));
+  if (shown.length !== 8) fail(`attendu 8 questions affichées, obtenu ${shown.length}`);
+  else ok('les 8 questions de la catégorie sont affichées');
+
+  const text = root.textContent;
+  if (text.includes('Alex') && text.includes('Sam')) ok('les deux prénoms sont affichés');
+  else fail('prénoms manquants sur la révélation');
+  if (text.includes('Ma réponse 1') && text.includes('Sa réponse 1')) {
+    ok('les réponses des deux partenaires sont affichées');
+  } else fail('réponses manquantes sur la révélation');
+
+  const badges = walk(root).filter((e) =>
+    e.tagName === 'SPAN' && String(e.className).includes('badge') && e.textContent === ui.reveal.skipped);
+  if (badges.length !== 2) fail(`attendu 2 badges « ${ui.reveal.skipped} », obtenu ${badges.length}`);
+  else ok('questions passées : badge « passée » sans texte');
+  if (text.includes('Ma réponse 3') || text.includes('Sa réponse 5')) {
+    fail('le texte d\'une question passée ne doit pas apparaître');
+  } else ok('aucun texte pour les questions passées');
+
+  const read = supabase.queries.find((q) => q.table === 'answers' && q.op === 'select');
+  if (!read) fail('aucune lecture des réponses');
+  else if ('user_id' in read.filters) fail(`réponses filtrées par user_id : ${JSON.stringify(read.filters)}`);
+  else if (read.filters.couple_id !== 'couple-1' || read.filters.category_id !== cat.id) {
+    fail(`filtres de lecture inattendus : ${JSON.stringify(read.filters)}`);
+  } else ok('réponses lues par couple + catégorie, sans filtre user_id');
+
+  if (ui.reveal.sensitiveIntro && text.includes(ui.reveal.sensitiveIntro)) {
+    fail('message « questions sensibles » affiché sur une catégorie sans question sensible');
+  } else ok('pas de message « questions sensibles » là où il n\'y en a pas');
+  if (text.includes(content.common.golden_rules[0])) ok('rappel des règles d\'or visible');
+  else fail('rappel des règles d\'or absent');
+
+  const next = byText(root, 'BUTTON', ui.reveal.continue);
+  if (!next) fail(`bouton « ${ui.reveal.continue} » absent`);
+  else {
+    await click(next);
+    if (navigateLog.some((r) => r.name === 'home')) ok('« Continuer » ramène aux catégories');
+    else fail('« Continuer » ne ramène pas aux catégories');
+  }
+  leave();
+}
+
+console.log('\n== 7b. Révélation : catégorie avec questions sensibles ==');
+{
+  const cat = content.categories.find((c) => c.questions.some((q) => q.sensitive));
+  const supabase = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH.map((r) => ({ ...r, category_id: cat.id })) });
+  fillAnswers(supabase, cat, { skip: -1 }, { skip: -1 });
+  const { root, leave } = await renderRevealView(supabase, cat.id);
+  const text = root.textContent;
+  if (!text.includes(ui.reveal.sensitiveIntro)) fail('message « questions sensibles » absent');
+  else ok('message « questions sensibles » affiché avant les réponses');
+  if (text.indexOf(ui.reveal.sensitiveIntro) > text.indexOf(cat.questions[0].text)) {
+    fail('le message sensible doit précéder les réponses');
+  } else ok('le message sensible précède les réponses');
+  leave();
+}
+
+console.log('\n== 8. Révélation : statut révélé mais une seule moitié → chargement ==');
+{
+  const cat = content.categories[0];
+  const supabase = makeSupabase({ people: PEOPLE, status: VALIDATED_BOTH });
+  fillAnswers(supabase, cat, { skip: -1 }, null); // aucune ligne du partenaire
+  const { root, leave } = await renderRevealView(supabase, cat.id);
+  const text = root.textContent;
+
+  if (text.includes('Ma réponse 1') || text.includes('Sa réponse 1')) {
+    fail('affichage partiel : une moitié d\'écran est rendue');
+  } else ok('aucune moitié d\'écran affichée');
+  if (text.includes(ui.reveal.arriving)) ok('état de chargement affiché (rechargement)');
+  else fail('état de chargement absent sur des données incomplètes');
+  leave();
 }
 
 await server.close();

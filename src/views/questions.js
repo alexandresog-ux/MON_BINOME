@@ -75,10 +75,12 @@ export async function renderQuestions(root, ctx, categoryId) {
   const partnerValidated = (statusRes.data ?? []).some((r) => r.user_id !== uid && r.validated_at);
 
   if (myValidated) {
+    // Les deux ont validé : la révélation s'ouvre directement.
+    if (partnerValidated) { navigate({ name: 'reveal', categoryId: cat.id }); return; }
     body.replaceChildren(h('section', { class: 'card' },
       h('h2', {}, t.lockedTitle),
       h('p', {}, t.locked),
-      h('p', { class: 'muted' }, partnerValidated ? t.revealed : t.waitPartner)));
+      h('p', { class: 'muted' }, t.waitPartner)));
     return;
   }
 
@@ -193,7 +195,7 @@ export async function renderQuestions(root, ctx, categoryId) {
     }
     // Réponses verrouillées dès maintenant (RLS) : on passe en salle d'attente,
     // sauf si les deux ont déjà validé (révélation).
-    if (data.revealed) navigate({ name: 'home', notice: t.revealed });
+    if (data.revealed) navigate({ name: 'reveal', categoryId: cat.id });
     else navigate({ name: 'wait', categoryId: cat.id });
   }
 

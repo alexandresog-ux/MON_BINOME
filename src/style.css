@@ -91,3 +91,14 @@ textarea:disabled { opacity: .7; }
 .chip:disabled { opacity: .6; }
 .statusline { margin: .5rem 0; font-weight: 600; }
 .statusline.ok { color: var(--brand); }
+/* Révélation : les deux réponses côte à côte, sur écran large. */
+.wrap:has(.reveal) { max-width: 46rem; }
+.reveal-q h2 { font-size: 1.05rem; line-height: 1.4; margin: 0 0 .75rem; }
+.reveal-pair { display: grid; gap: .75rem; }
+@media (min-width: 40rem) { .reveal-pair { grid-template-columns: 1fr 1fr; } }
+.answer { background: var(--bg); border: 1px solid var(--line); border-radius: .75rem; padding: .75rem; }
+.answer-who { margin: 0 0 .35rem; font-size: .9rem; font-weight: 700; color: var(--brand); }
+.answer-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.answer-skipped { margin: 0; color: var(--muted); }
+.rules { margin: 0; padding-left: 1.25rem; }
+.rules li { margin-bottom: .35rem; }

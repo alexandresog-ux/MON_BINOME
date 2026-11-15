@@ -66,7 +66,7 @@ export const ui = {
       progress: (n, total) => `${n} sur ${total} réponses enregistrées`,
       waiting: 'En attente de ton ou ta partenaire',
       partnerDone: 'Ton ou ta partenaire a déjà terminé : à toi de jouer !',
-      both: 'Les deux ont validé · révélation à venir'
+      both: 'Les deux ont validé · voir vos réponses côte à côte'
     }
   },
   waiting: {
@@ -79,8 +79,21 @@ export const ui = {
     reconnecting: 'Reconnexion en cours…',
     reconnectFailed: 'La connexion au temps réel est perdue. Appuie sur « Actualiser » de temps en temps.',
     offline: 'Tu es hors ligne : l\'écran se mettra à jour dès que la connexion revient.',
-    bothValidated: 'Vous avez tous les deux validé ! Les réponses arrivent.',
     notValidated: 'Ta catégorie n\'est plus marquée comme validée. Retourne aux catégories.'
+  },
+  reveal: {
+    title: 'Vos réponses côte à côte',
+    notRevealed: 'Cette catégorie n\'est pas encore révélée : vous devez tous les deux avoir validé.',
+    unlinked: 'Votre couple n\'existe plus. Retour à l\'accueil.',
+    arriving: 'Les réponses arrivent…',
+    loadFailed: 'Impossible de charger vos réponses pour le moment.',
+    retry: 'Réessayer',
+    sensitiveIntro: 'Certaines questions de cette catégorie sont sensibles. Chacun(e) a répondu librement : on lit avec bienveillance, sans juger, et on peut faire une pause à tout moment.',
+    rulesTitle: 'Nos règles d\'or',
+    mine: 'Moi',
+    theirs: 'Ton ou ta partenaire',
+    skipped: 'Passée',
+    continue: 'Continuer'
   },
   questions: {
     backToCategories: 'Retour aux catégories',
@@ -89,7 +102,6 @@ export const ui = {
     lockedTitle: 'Réponses verrouillées',
     locked: 'Tu as déjà validé cette catégorie : tes réponses ne peuvent plus être modifiées.',
     waitPartner: 'La comparaison arrive dès que ton ou ta partenaire aura validé.',
-    revealed: 'Vous avez tous les deux validé ! Les réponses arrivent.',
     partnerDone: 'Ton ou ta partenaire a déjà validé cette catégorie.',
     progress: (n, total) => `Question ${n} sur ${total}`,
     jumpLabel: 'Aller directement à une question',
