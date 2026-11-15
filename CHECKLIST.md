@@ -23,45 +23,45 @@ PWA jouable à distance par deux partenaires, fondée sur le questionnaire « Co
 ## PARTIE 1 — À la charge de Claude (fondations)
 
 ### 1.1 Contenu
-- [ ] `questions.fr.json` : 12 catégories, 96 questions, ordre, titres, sous-titres
-- [ ] Intitulé de l'objectif SMART de chaque catégorie
-- [ ] Textes fixes : règles d'or, avertissement violence/contrôle, conseil final
-- [ ] Textes séparés dans un fichier dédié (traduction possible plus tard)
+- [x] `questions.fr.json` : 12 catégories, 96 questions, ordre, titres, sous-titres
+- [x] Intitulé de l'objectif SMART de chaque catégorie
+- [x] Textes fixes : règles d'or, avertissement violence/contrôle, conseil final
+- [x] Textes séparés dans un fichier dédié (traduction possible plus tard)
 
 ### 1.2 Base de données (`schema.sql`)
-- [ ] Tables : `profiles`, `pair_requests`, `couples`, `answers`, `alignment`, `smart_goals`
-- [ ] Code de contact aléatoire et unique, non séquentiel (ex. `SOG-7K3F-92QX`)
-- [ ] Contrainte : un seul partenaire actif par utilisateur
-- [ ] Contrainte : impossible de s'appairer avec soi-même
-- [ ] Fonction : envoyer une demande d'appairage par code
-- [ ] Fonction : accepter ou refuser une demande (consentement obligatoire)
-- [ ] Limitation des tentatives de saisie de codes (anti-devinage)
-- [ ] Fonctions : délier, bloquer, régénérer son code
-- [ ] Fonction : supprimer le compte et toutes les données associées
+- [x] Tables : `profiles`, `pair_requests`, `couples`, `answers`, `alignment`, `smart_goals`
+- [x] Code de contact aléatoire et unique, non séquentiel (ex. `SOG-7K3F-92QX`)
+- [x] Contrainte : un seul partenaire actif par utilisateur
+- [x] Contrainte : impossible de s'appairer avec soi-même
+- [x] Fonction : envoyer une demande d'appairage par code
+- [x] Fonction : accepter ou refuser une demande (consentement obligatoire)
+- [x] Limitation des tentatives de saisie de codes (anti-devinage)
+- [x] Fonctions : délier, bloquer, régénérer son code
+- [x] Fonction : supprimer le compte et toutes les données associées
 
 ### 1.3 Sécurité (RLS) ⚠️
-- [ ] RLS activé sur **toutes** les tables
-- [ ] Chacun lit et écrit uniquement ses propres réponses
-- [ ] Réponses du partenaire lisibles **seulement quand les deux ont validé** la catégorie
-- [ ] Impossible de lister ou rechercher d'autres utilisateurs
-- [ ] Impossible de lire les données d'un autre couple
-- [ ] Jeu de tests SQL : lecture trop tôt, lecture d'un autre couple, devinage de codes
+- [x] RLS activé sur **toutes** les tables
+- [x] Chacun lit et écrit uniquement ses propres réponses
+- [x] Réponses du partenaire lisibles **seulement quand les deux ont validé** la catégorie
+- [x] Impossible de lister ou rechercher d'autres utilisateurs
+- [x] Impossible de lire les données d'un autre couple
+- [x] Jeu de tests SQL : lecture trop tôt, lecture d'un autre couple, devinage de codes
 - [ ] Relecture des règles RLS avec Alexandre avant toute vraie donnée
 
 ### 1.4 Infrastructure
-- [ ] Workflow GitHub Actions keep-alive (appel planifié tous les 3 à 4 jours)
-- [ ] `.env.example` (URL Supabase + clé `anon` uniquement) ⚠️
-- [ ] `.gitignore` incluant `.env`
-- [ ] `netlify.toml` : build, redirection SPA, en-têtes de sécurité
+- [x] Workflow GitHub Actions keep-alive (appel planifié tous les 3 à 4 jours)
+- [x] `.env.example` (URL Supabase + clé `anon` uniquement) ⚠️
+- [x] `.gitignore` incluant `.env`
+- [x] `netlify.toml` : build, redirection SPA, en-têtes de sécurité
 
 ### 1.5 Squelette PWA
-- [ ] Projet Vite en JavaScript, structure des dossiers
-- [ ] `manifest.json` et icônes
-- [ ] Service worker
-- [ ] Bouton « Installer l'app » (Android / Chrome)
-- [ ] Message d'installation iPhone (Partager → Sur l'écran d'accueil)
-- [ ] Client Supabase, authentification, routage simple
-- [ ] `README.md` et `AGENTS.md` (contexte et règles pour OpenCode)
+- [x] Projet Vite en JavaScript, structure des dossiers
+- [x] `manifest.json` et icônes
+- [x] Service worker
+- [x] Bouton « Installer l'app » (Android / Chrome)
+- [x] Message d'installation iPhone (Partager → Sur l'écran d'accueil)
+- [x] Client Supabase, authentification, routage simple
+- [x] `README.md` et `AGENTS.md` (contexte et règles pour OpenCode)
 
 ---
 
@@ -81,7 +81,7 @@ PWA jouable à distance par deux partenaires, fondée sur le questionnaire « Co
 - [x] Demandes reçues (accepter, refuser)
 - [x] Accueil : carte des 12 catégories avec progression
 - [x] Écran de questions avec option « Passer » sans pénalité
-- [ ] Salle d'attente « Ton ou ta partenaire n'a pas encore terminé »
+- [x] Salle d'attente « Ton ou ta partenaire n'a pas encore terminé »
 - [ ] Révélation côte à côte des réponses
 - [ ] Notes d'alignement 1 à 10 (écart ≥ 3 : conversation approfondie suggérée)
 - [ ] Formulaire guidé SMART (S, M, A, R, T + échéance)
@@ -92,8 +92,8 @@ PWA jouable à distance par deux partenaires, fondée sur le questionnaire « Co
 - [ ] Page de confidentialité et consentement sur les données sensibles
 
 ### 2.3 Temps réel
-- [ ] Abonnement Supabase Realtime au statut du partenaire (validé ou non)
-- [ ] Gestion de la reconnexion et de l'état hors ligne
+- [x] Abonnement Supabase Realtime au statut du partenaire (validé ou non)
+- [x] Gestion de la reconnexion et de l'état hors ligne
 
 ### 2.4 Qualité
 - [ ] Interface pensée mobile d'abord, boutons larges
