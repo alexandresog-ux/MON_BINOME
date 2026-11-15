@@ -45,10 +45,10 @@ export async function renderAlignment(root, ctx, categoryId) {
   }, ui.questions.backToCategories);
 
   if (!cat) {
-    root.append(
+    root.append(h('div', { class: 'align' },
       h('div', { class: 'topnav' }, backBtn),
       h('header', { class: 'hero' }, h('h1', {}, ui.appName)),
-      h('section', { class: 'card' }, h('p', {}, ui.questions.notFound)));
+      h('section', { class: 'card' }, h('p', {}, ui.questions.notFound))));
     return;
   }
 
@@ -61,12 +61,15 @@ export async function renderAlignment(root, ctx, categoryId) {
   function mountShell() {
     if (mounted) return;
     mounted = true;
+    // .align élargit la colonne (voir style.css) : 10 boutons sur une ligne,
+    // deux rangées sur mobile, sans débordement.
     root.replaceChildren(
-      h('div', { class: 'topnav' }, backBtn),
-      h('header', { class: 'hero' },
-        h('h1', {}, t.title),
-        h('p', { class: 'muted' }, cat.title)),
-      body);
+      h('div', { class: 'align' },
+        h('div', { class: 'topnav' }, backBtn),
+        h('header', { class: 'hero' },
+          h('h1', {}, t.title),
+          h('p', { class: 'muted' }, cat.title)),
+        body));
     body.append(h('p', { class: 'muted' }, ui.common.loading));
   }
 

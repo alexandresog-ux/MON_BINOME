@@ -93,6 +93,8 @@ textarea:disabled { opacity: .7; }
 .statusline.ok { color: var(--brand); }
 /* Révélation : les deux réponses côte à côte, sur écran large. */
 .wrap:has(.reveal) { max-width: 46rem; }
+/* Notes d'alignement : la rangée de 10 boutons a besoin de place en large. */
+.wrap:has(.align) { max-width: 40rem; }
 .reveal-q h2 { font-size: 1.05rem; line-height: 1.4; margin: 0 0 .75rem; }
 .reveal-pair { display: grid; gap: .75rem; }
 @media (min-width: 40rem) { .reveal-pair { grid-template-columns: 1fr 1fr; } }
@@ -105,8 +107,9 @@ textarea:disabled { opacity: .7; }
 /* Notes d'alignement : 10 boutons, deux rangées sur mobile. */
 .align-label { font-size: 1.05rem; line-height: 1.4; margin: 0 0 .5rem; }
 .legend { display: flex; justify-content: space-between; gap: .75rem; color: var(--muted); font-size: .9rem; }
-.score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; margin: .75rem 0 .25rem; }
-@media (min-width: 40rem) { .score-grid { grid-template-columns: repeat(10, 1fr); } }
+/* Colonnes adaptatives : 5 sur mobile (deux rangées), 10 sur écran large,
+   sans jamais déborder — le nombre dépend de la largeur du conteneur. */
+.score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr)); gap: .5rem; margin: .75rem 0 .25rem; }
 .score {
   min-height: 3rem; min-width: 3rem; padding: 0; border-radius: .75rem;
   border: 1px solid var(--line); background: transparent; color: var(--text);
