@@ -36,8 +36,14 @@ input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); ou
 .btn:disabled { opacity: .6; cursor: progress; }
 .link { background: none; border: 0; padding: .75rem 0; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
 .row { display: flex; gap: .75rem; }
+/* Les boutons se partagent la ligne et peuvent réduire sous leur largeur de
+   contenu : aucun débordement horizontal, même à 320 px (le texte se coupe). */
+.row > .btn { flex: 1 1 0; min-width: 0; }
 .code { font: 700 1.6rem/1.2 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .06em; text-align: center; margin: .75rem 0 1rem; word-break: break-all; }
 .msg { min-height: 1.5rem; margin: .75rem 0 0; color: var(--muted); }
+/* Message vide = aucune place réservée : pas d'espace mort sous la rangée de
+   notes ni en bas des formulaires (la place revient au message affiché). */
+.msg:empty { min-height: 0; margin-top: 0; }
 .install {
   position: fixed; left: .75rem; right: .75rem; bottom: calc(.75rem + env(safe-area-inset-bottom));
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
@@ -66,7 +72,9 @@ body:has(.install:not([hidden])) .update { bottom: calc(5.5rem + env(safe-area-i
 .category-status { display: block; margin-top: .6rem; font-size: .9rem; font-weight: 600; color: var(--brand); }
 .bar { height: .5rem; background: var(--line); border-radius: 999rem; overflow: hidden; margin-top: .6rem; }
 .bar > span { display: block; height: 100%; background: var(--brand); }
-.topnav { margin-bottom: .5rem; }
+/* Deux liens côte à côte : flex les fait passer sur deux lignes à 320 px
+   (deux boutons inline sans espace ne se coupent jamais au milieu). */
+.topnav { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .75rem; margin-bottom: .5rem; }
 textarea {
   width: 100%; min-height: 8rem; padding: .75rem; font: inherit; color: inherit;
   background: var(--card); border: 1px solid var(--line); border-radius: .75rem; resize: vertical;
@@ -104,14 +112,18 @@ textarea:disabled { opacity: .7; }
 .answer-skipped { margin: 0; color: var(--muted); }
 .rules { margin: 0; padding-left: 1.25rem; }
 .rules li { margin-bottom: .35rem; }
-/* Notes d'alignement : 10 boutons, deux rangées sur mobile. */
+/* Notes d'alignement : la rangée de 10 boutons doit tenir DANS la carte. */
 .align-label { font-size: 1.05rem; line-height: 1.4; margin: 0 0 .5rem; }
 .legend { display: flex; justify-content: space-between; gap: .75rem; color: var(--muted); font-size: .9rem; }
-/* Colonnes adaptatives : 5 sur mobile (deux rangées), 10 sur écran large,
-   sans jamais déborder — le nombre dépend de la largeur du conteneur. */
-.score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr)); gap: .5rem; margin: .75rem 0 .25rem; }
+/* La grille tient toujours dans la carte : 10 colonnes égales dès 40rem de
+   large (boutons ≥ 48 px de côté), sinon deux rangées de 5.
+   minmax(0, 1fr) : les colonnes ne débordent jamais, de 320 à 1440 px. */
+.score-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .5rem; margin: .75rem 0 .25rem; }
+@media (min-width: 40rem) {
+  .score-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+}
 .score {
-  min-height: 3rem; min-width: 3rem; padding: 0; border-radius: .75rem;
+  min-height: 3rem; padding: 0; border-radius: .75rem;
   border: 1px solid var(--line); background: transparent; color: var(--text);
   font: inherit; font-weight: 700; cursor: pointer;
 }
