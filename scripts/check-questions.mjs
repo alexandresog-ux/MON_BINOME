@@ -1360,6 +1360,17 @@ console.log('\n== 26. Notre synthèse : les deux notes, sinon « — », 12 lign
     else ok('objectif complet : « Oui » avec les 4 lettres + échéance, « Non » sinon');
     if (c2[3] !== '—') fail(`sans objectif : la cellule affiche « ${c2[3]} » au lieu de « — »`);
     else ok('sans objectif : la cellule affiche « — »');
+
+    // Toutes les cellules vides portent la classe cell-empty : style uniforme
+    // du tiret (jamais l'une plus gras que les autres).
+    const emptyCells = walk(s.root).filter((e) => e.tagName === 'TD' && e.textContent.trim() === '—');
+    const notMarked = emptyCells.filter((e) => !String(e.className).split(' ').includes('cell-empty'));
+    const wronglyMarked = walk(s.root).filter((e) => e.tagName === 'TD'
+      && e.textContent.trim() !== '—' && String(e.className).split(' ').includes('cell-empty'));
+    if (!emptyCells.length) fail('aucune cellule vide « — » dans le tableau');
+    else if (notMarked.length) fail(`${notMarked.length} cellule(s) vide(s) sans la classe cell-empty`);
+    else if (wronglyMarked.length) fail('cellule pleine marquée cell-empty');
+    else ok(`cellules vides uniformes : ${emptyCells.length} « — » en classe cell-empty`);
   }
 
   const trs = walk(s.root).filter((e) => e.tagName === 'TR');
@@ -1612,11 +1623,22 @@ console.log('\n== 30. Export PDF : @media print, rappel de confidentialité, pie
     const missingCols = shortCols.filter((prop) => !block.includes(prop));
     if (missingCols.length) fail(`colonnes courtes sans protection : ${missingCols.join(', ')}`);
     else ok('colonnes courtes : white-space: nowrap, word-break/overflow-wrap normal, hyphens manual');
-    // Aucun décor de page résiduel : pas de position fixe, pas de coupure forcée.
+    // Aucun décor de page résiduel : pas de position fixe ni collante.
     if (/position:\s*(fixed|sticky)/.test(block)) fail('élément fixed/sticky encore actif à l\'impression');
     else ok('aucun élément fixed/sticky pendant l\'impression');
-    if (/break-(after|before|page)/.test(block)) fail('break-after/before/page résiduel dans la feuille d\'impression');
-    else ok('aucune coupure forcée résiduelle (break-after/before/page)');
+    // Aucune coupure de page FORCÉE ; les titres (h2/h3) et intros de section
+    // portent break-after: avoid pour ne jamais rester seuls en bas de page.
+    const forced = /break-(before|after):\s*(always|page|left|right)/.test(block)
+      || /page-break-(before|after):\s*(always|page|left|right)/.test(block);
+    if (forced) fail('coupure de page forcée résiduelle (always/page/left/right)');
+    else ok('aucune coupure forcée résiduelle (seuls des avoid de titre)');
+    if (!block.includes('break-after: avoid') || !block.includes('page-break-after: avoid')) {
+      fail('titres : break-after: avoid / page-break-after: avoid absents de @media print');
+    } else ok('titres h2/h3 et intros : break-after: avoid (+ page-break-after: avoid)');
+    // Toutes les cellules vides du tableau au même graisse.
+    if (!/\.synth-table \.cell-empty\s*\{\s*font-weight:\s*400/.test(css)) {
+      fail('cellules vides : style uniforme font-weight 400 absent de style.css');
+    } else ok('cellules vides : font-weight 400 uniforme (aucun tiret plus gras)');
   }
 
   const supabase = makeSupabase({ people: PEOPLE, status: [] });

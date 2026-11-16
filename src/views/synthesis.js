@@ -164,13 +164,17 @@ export async function renderSynthesis(root, ctx) {
       const sText = String(goal?.s_text ?? '').trim();
       const complete = isGoalComplete(goal) ? t.completeYes : t.completeNo;
 
+      // Cellule vide (« — ») : une classe unique, un style uniforme partout
+      // (notes et objectif) — jamais de tiret plus gras qu'un autre.
+      const cell = (text, ...rest) =>
+        h('td', { class: text === t.none ? 'cell-empty' : null }, text, ...rest);
+
       return h('tr', {},
         h('th', { scope: 'row' }, cat.title),
         h('td', {}, status),
-        h('td', {}, mineCell),
-        h('td', {}, theirsCell),
-        h('td', {},
-          sText || t.none,
+        cell(mineCell),
+        cell(theirsCell),
+        cell(sText || t.none,
           goal?.deadline ? h('div', { class: 'muted' }, t.deadline(dateFR(goal.deadline))) : null),
         h('td', {}, complete));
     });
@@ -291,7 +295,7 @@ export async function renderSynthesis(root, ctx) {
 
     formCard.replaceChildren(
       h('h2', {}, t.reviewTitle),
-      h('p', {}, t.reviewIntro),
+      h('p', { class: 'section-intro' }, t.reviewIntro),
       fieldsWrap,
       statusMsg,
       metaEl,

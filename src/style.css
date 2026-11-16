@@ -147,6 +147,8 @@ textarea:disabled { opacity: .7; }
 }
 .synth-table thead th { color: var(--muted); font-size: .85rem; }
 .synth-table tbody th { font-weight: 600; }
+/* Toutes les cellules vides au même style : un tiret, un seul graisse. */
+.synth-table .cell-empty { font-weight: 400; }
 
 /* « Nos objectifs » : un bloc par catégorie, sans carte vide si aucun objectif. */
 .goals-card:empty { display: none; }
@@ -210,6 +212,12 @@ textarea:disabled { opacity: .7; }
 
   /* Blocs courts jamais coupés en deux : titre, objectifs, bilan, pied. */
   h1, h2, h3, .hero, .goal-block, .print-field, .print-foot { break-inside: avoid; }
+  /* Un titre (ou une intro de section) ne reste jamais seul en bas de page :
+     ce qui le suit part avec lui. */
+  h2, h3, .section-intro {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
 
   .print-brand { font-size: 1.5rem; font-weight: 700; margin: 0 0 .25rem; }
   .print-field { margin: 0 0 .5rem; }
