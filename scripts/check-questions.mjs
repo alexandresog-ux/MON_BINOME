@@ -19,10 +19,15 @@ class MiniEl extends MiniNode {
     this.listeners = {};
     this._class = '';
     this.value = '';
+    this.checked = false;
     this.disabled = false;
   }
   get className() { return this._class; }
   set className(v) { this._class = v; }
+  // hidden reflète l'attribut, comme dans le vrai DOM (les panneaux de
+  // confirmation des Paramètres passent par cette propriété).
+  get hidden() { return 'hidden' in this.attrs; }
+  set hidden(v) { if (v) this.attrs.hidden = ''; else delete this.attrs.hidden; }
   setAttribute(k, v) {
     this.attrs[k] = String(v);
     if (k === 'disabled') this.disabled = true;
@@ -32,6 +37,10 @@ class MiniEl extends MiniNode {
   removeEventListener(type, fn) {
     this.listeners[type] = (this.listeners[type] ?? []).filter((f) => f !== fn);
   }
+  // Focus/blur comme dans le navigateur : ils déclenchent les listeners
+  // (les confirmations en page vérifient le transfert de focus).
+  focus() { for (const fn of this.listeners.focus ?? []) fn({ target: this }); }
+  blur() { for (const fn of this.listeners.blur ?? []) fn({ target: this }); }
   append(...kids) {
     for (const k of kids.flat()) {
       if (k == null || k === false) continue;
@@ -63,7 +72,7 @@ const confirms = [];
 let printCalls = 0;
 globalThis.window = {
   confirm: (msg) => { confirms.push(String(msg)); return true; },
-  location: { reload() {} },
+  location: { reload() {}, origin: 'http://localhost:5173' },
   print() { printCalls += 1; },
   addEventListener(type, fn) { (winListeners[type] ??= []).push(fn); },
   removeEventListener(type, fn) {
@@ -104,6 +113,15 @@ const blurEl = (el) => { for (const fn of el.listeners.blur ?? []) fn({ target: 
 const textareas = (root) => walk(root).filter((e) => e.tagName === 'TEXTAREA');
 const dateInput = (root) =>
   walk(root).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'date');
+// Envoi d'un formulaire : les confirmations en page et l'inscription passent
+// par onsubmit (pas de validation native dans le Mini-DOM).
+const submitForm = async (form) => {
+  if (!form) throw new Error('formulaire introuvable');
+  for (const fn of form.listeners.submit ?? []) await fn({ preventDefault() {}, target: form });
+};
+// Panneaux de confirmation en page (classe « confirm ») sur un écran donné.
+const confirmPanels = (root) =>
+  walk(root).filter((e) => e.tagName === 'DIV' && String(e.className).split(' ').includes('confirm'));
 // Écritures envoyées à smart_goals (les lectures sont exclues).
 const goalWrites = (supabase) =>
   supabase.queries.filter((q) => q.table === 'smart_goals' && q.op !== 'select');
@@ -127,6 +145,10 @@ function makeSupabase(opts = {}) {
   const queries = [];
   const channels = [];
   const rpcs = [];
+  const rpcCalls = [];
+  const signUpCalls = [];
+  const signInCalls = [];
+  const signOutCalls = [];
   const status = opts.status ?? [];
   const people = opts.people ?? [];
   const alignRows = [...(opts.alignment ?? [])];
@@ -143,7 +165,16 @@ function makeSupabase(opts = {}) {
       return Promise.resolve({ data: coupleId ? [{ couple_id: coupleId }] : [], error: null });
     }
     if (s.table === 'category_status') return Promise.resolve({ data: status, error: null });
-    if (s.table === 'profiles') return Promise.resolve({ data: people, error: null });
+    if (s.table === 'profiles') {
+      // UPDATE du prénom : le front fait .update().eq().select('id') pour
+      // compter les lignes — une RLS bloquante renvoie 0 ligne, pas une
+      // erreur (opts.refuseProfile = 'empty' simule ce cas).
+      if (s.op === 'update') {
+        if (opts.refuseProfile === 'empty') return Promise.resolve({ data: [], error: null });
+        return Promise.resolve({ data: [{ id: MY_ID }], error: null });
+      }
+      return Promise.resolve({ data: people, error: null });
+    }
     if (s.table === 'alignment') {
       if (s.op === 'upsert') {
         // opts.refuse simule un upsert refusé par les politiques RLS.
@@ -280,12 +311,45 @@ function makeSupabase(opts = {}) {
   };
   return {
     from,
-    rpc(name) {
+    rpc(name, args) {
       rpcs.push(name);
+      // Arguments tracés : les tests vérifient p_block, p_blocked, etc.
+      rpcCalls.push({ name, args: args ?? null });
+      // Résultat sur mesure (erreur simulée, lignes particulières…).
+      if (opts.rpcResults && name in opts.rpcResults) {
+        const r = opts.rpcResults[name];
+        return Promise.resolve({ data: r.data ?? null, error: r.error ?? null });
+      }
       if (name === 'validate_category') {
         return Promise.resolve({ data: { ok: true, revealed: false }, error: null });
       }
+      // Blocages (Proposition supabase/proposals/2026-11-16-blocages-comptes.sql).
+      if (name === 'list_my_blocks') {
+        return Promise.resolve({ data: opts.blocks ?? [], error: null });
+      }
+      if (name === 'my_contact_code') {
+        return Promise.resolve({ data: 'SOG-TEST-1234', error: null });
+      }
+      if (name === 'list_incoming_requests') {
+        return Promise.resolve({ data: opts.requests ?? [], error: null });
+      }
+      if (name === 'regenerate_contact_code') {
+        return Promise.resolve({ data: { ok: true, code: 'SOG-NEW-1111' }, error: null });
+      }
       return Promise.resolve({ data: { ok: true }, error: null });
+    },
+    // Auth tracée : inscription (consentement), connexion, déconnexion.
+    auth: {
+      signUp(payload) {
+        signUpCalls.push(payload);
+        return Promise.resolve({ data: { session: opts.signUpSession ?? null, user: { id: 'user-new' } }, error: null });
+      },
+      signInWithPassword(payload) {
+        signInCalls.push(payload);
+        return Promise.resolve({ data: { session: { user: { id: 'user-1' } }, user: { id: 'user-1' } }, error: null });
+      },
+      signOut() { signOutCalls.push(true); return Promise.resolve({ error: null }); },
+      onAuthStateChange() { return { data: { subscription: { unsubscribe() {} } } }; }
     },
     // Canal Realtime : la vue s'abonne, les tests déclenchent les callbacks
     // via `fire(table)` pour vérifier la resynchronisation d'écran.
@@ -309,7 +373,8 @@ function makeSupabase(opts = {}) {
         }
       }
     },
-    rows, goalRows, reviewRows, log, queries, rpcs
+    rows, goalRows, reviewRows, log, queries, rpcs, rpcCalls,
+    signUpCalls, signInCalls, signOutCalls
   };
 }
 
@@ -325,8 +390,13 @@ const { renderAlignment } = await server.ssrLoadModule('/src/views/alignment.js'
 const { renderSmart } = await server.ssrLoadModule('/src/views/smart.js');
 const { renderSynthesis } = await server.ssrLoadModule('/src/views/synthesis.js');
 const { renderCategories } = await server.ssrLoadModule('/src/views/categories.js');
+const { renderSettings } = await server.ssrLoadModule('/src/views/settings.js');
+const { renderPrivacy } = await server.ssrLoadModule('/src/views/privacy.js');
+const { renderLogin } = await server.ssrLoadModule('/src/views/login.js');
+const { renderHome } = await server.ssrLoadModule('/src/views/home.js');
 const { createActivity } = await server.ssrLoadModule('/src/activity.js');
 const { ui } = await server.ssrLoadModule('/src/data/ui.fr.js');
+const { PRIVACY_FLAGS, PRIVACY_VERSION } = await server.ssrLoadModule('/src/data/privacy.fr.js');
 const content = (await server.ssrLoadModule('/src/data/questions.fr.json')).default;
 
 const t = ui.questions;
@@ -417,6 +487,22 @@ const synthRow = (root, title) =>
 
 // Cellules d'une ligne du tableau (sans l'en-tête de catégorie).
 const synthCells = (row) => row.childNodes.slice(1).map((c) => c.textContent.trim());
+
+// Rendu de l'écran Paramètres (état de couple fourni par le test).
+async function renderSettingsView(supabase, opts = {}) {
+  const root = new MiniEl('div');
+  const navigateLog = [];
+  const state = { seenCouple: opts.seenCouple ?? true };
+  const ctx = {
+    supabase,
+    session: { user: { id: 'user-1' } },
+    navigate: (r) => navigateLog.push(r),
+    onLeave: () => {},
+    state
+  };
+  await renderSettings(root, ctx);
+  return { root, navigateLog, ctx, state };
+}
 
 const PEOPLE = [
   { id: 'user-1', display_name: 'Alex' },
@@ -1740,6 +1826,387 @@ console.log('\n== 32. Titre du document à l\'impression, restauré après after
     else ok('titre restauré après afterprint (impression annulée comprise)');
   }
   s.leave();
+}
+
+console.log('\n== 33. Paramètres : 7 sections, sécurité visible, aucun window.confirm, retour ==');
+{
+  const supabase = makeSupabase({ people: PEOPLE });
+  confirms.length = 0;
+  const s = await renderSettingsView(supabase);
+  const heads = walk(s.root).filter((e) => e.tagName === 'H2').map((e) => e.textContent.trim());
+  const expected = [
+    ui.settings.profile.title, ui.settings.privacy.title, ui.settings.safety.title,
+    ui.settings.unlink.title, ui.settings.blocks.title, ui.settings.delete.title, ui.settings.about.title
+  ];
+  const missing = expected.filter((x) => !heads.includes(x));
+  if (missing.length) fail(`sections absentes : ${JSON.stringify(missing)}`);
+  else if (heads.length !== expected.length) fail(`autre chose que 7 sections H2 : ${JSON.stringify(heads)}`);
+  else ok('les 7 sections de Paramètres sont présentes (profil, confidentialité, sécurité, délier, blocages, suppression, à propos)');
+
+  if (!s.root.textContent.includes(content.common.safety_warning)) fail('avertissement de sécurité absent des Paramètres');
+  else ok('avertissement violence/contrôle/peur affiché dans les Paramètres');
+
+  if (confirms.length) fail('window.confirm utilisé sur l\'écran Paramètres');
+  else ok('aucun window.confirm : confirmations en page');
+
+  const back = byText(s.root, 'BUTTON', ui.settings.back);
+  if (!back) fail('bouton « Retour à l\'accueil » absent');
+  else {
+    await click(back);
+    if (s.navigateLog.at(-1)?.name !== 'home') fail('retour non routé vers home');
+    else ok('retour à l\'accueil via le routeur');
+  }
+
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  const btnRule = /\.btn\s*\{[^}]*\}/.exec(css);
+  if (!btnRule || !/min-height:\s*3rem/.test(btnRule[0])) fail('boutons .btn sans min-height: 3rem (48 px)');
+  else ok('boutons .btn ≥ 48 px (min-height: 3rem)');
+}
+
+console.log('\n== 34. Délier : confirmation en page, mot DÉLIER, blocage, saisie jamais stockée ==');
+{
+  // Scénario A : mauvaise saisie, Échap, puis déliaison simple.
+  const supabase = makeSupabase({ people: PEOPLE });
+  confirms.length = 0;
+  const s = await renderSettingsView(supabase);
+  const action = byText(s.root, 'BUTTON', ui.settings.unlink.action);
+  const panel = confirmPanels(s.root).find((p) => p.textContent.includes(ui.settings.unlink.word));
+  if (!action) fail('bouton « Délier » absent');
+  else if (!panel) fail('panneau de confirmation de déliaison absent');
+  else if (panel.hidden !== true) fail('panneau de confirmation visible d\'emblée');
+  else ok('confirmation masquée tant que le bouton n\'est pas touché');
+  if (panel && action) {
+    const input = walk(panel).find((e) => e.tagName === 'INPUT');
+    const form = walk(panel).find((e) => e.tagName === 'FORM');
+    let focused = false;
+    input.addEventListener('focus', () => { focused = true; });
+
+    await click(action);
+    if (panel.hidden !== false) fail('panneau non affiché après le bouton « Délier »');
+    else if (!focused) fail('le champ de confirmation n\'a pas reçu le focus');
+    else ok('panneau affiché dans la page, focus sur le champ de saisie');
+
+    await type(input, 'SECRET-DE-SAISIE');
+    await submitForm(form);
+    if (!byText(panel, 'P', ui.settings.confirm.wrong(ui.settings.unlink.word))) {
+      fail('avertissement « La saisie ne correspond pas » absent');
+    } else ok('saisie différente de DÉLIER refusée avec message explicite');
+    if (supabase.rpcCalls.some((c) => c.name === 'unlink_couple')) fail('unlink_couple appelé avec une saisie incorrecte');
+    else ok('aucune déliaison envoyée avec une saisie incorrecte');
+    if (s.root.textContent.includes('SECRET-DE-SAISIE')) fail('la saisie brute apparaît dans les messages');
+    else ok('la saisie brute n\'apparaît jamais à l\'écran');
+
+    for (const fn of panel.listeners.keydown ?? []) fn({ key: 'Escape' });
+    if (panel.hidden !== true) fail('Échap ne referme pas le panneau');
+    else if (input.value !== '') fail('champ non vidé à la fermeture');
+    else ok('Échap referme le panneau et vide le champ');
+
+    await click(action);
+    await type(input, ui.settings.unlink.word);
+    const blockChk = walk(s.root).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'checkbox');
+    await submitForm(form);
+    const calls = supabase.rpcCalls.filter((c) => c.name === 'unlink_couple');
+    if (calls.length !== 1) fail(`unlink_couple appelé ${calls.length} fois`);
+    else if (calls[0].args?.p_block !== false) fail(`p_block incorrect sans blocage : ${JSON.stringify(calls[0].args)}`);
+    else ok('unlink_couple appelé avec p_block: false (sans blocage)');
+    if (JSON.stringify(calls).includes('SECRET-DE-SAISIE')) fail('la saisie a été stockée dans un appel RPC');
+    else ok('aucune saisie brute dans les appels RPC');
+    if (input.value !== '') fail('champ non vidé après la confirmation');
+    else ok('champ vidé après confirmation : rien n\'est conservé');
+    const nav = s.navigateLog.at(-1);
+    if (nav?.name !== 'home' || nav?.notice !== ui.settings.unlink.success) {
+      fail(`navigation finale inattendue : ${JSON.stringify(nav)}`);
+    } else ok('retour à l\'accueil avec le message « Vous êtes délié(e) »');
+    if (s.state.seenCouple !== false) fail('état « couple vu » non réinitialisé après ta propre déliaison');
+    else ok('état réinitialisé : pas de faux « a délié le couple » après ta déliaison');
+    if (confirms.length) fail('window.confirm appelé pendant la déliaison');
+    else ok('aucun window.confirm pendant la déliaison');
+  }
+
+  // Scénario B : déliaison AVEC blocage.
+  const supa2 = makeSupabase({ people: PEOPLE });
+  const s2 = await renderSettingsView(supa2);
+  const action2 = byText(s2.root, 'BUTTON', ui.settings.unlink.action);
+  const panel2 = confirmPanels(s2.root).find((p) => p.textContent.includes(ui.settings.unlink.word));
+  await click(action2);
+  const input2 = walk(panel2).find((e) => e.tagName === 'INPUT');
+  await type(input2, ui.settings.unlink.word);
+  const chk2 = walk(s2.root).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'checkbox');
+  chk2.checked = true;
+  await submitForm(walk(panel2).find((e) => e.tagName === 'FORM'));
+  const callB = supa2.rpcCalls.filter((c) => c.name === 'unlink_couple').at(-1);
+  if (!callB || callB.args?.p_block !== true) fail(`blocage non transmis : ${JSON.stringify(callB)}`);
+  else ok('unlink_couple appelé avec p_block: true (blocage coché)');
+}
+
+console.log('\n== 35. Comptes bloqués : liste via RPC, déblocage en page, état vide, table jamais lue ==');
+{
+  const supabase = makeSupabase({ people: PEOPLE, blocks: [
+    { blocked_id: 'user-9', display_name: 'Marc', created_at: '2026-11-01T10:00:00+00:00' },
+    { blocked_id: 'user-8', display_name: 'Zoé', created_at: '2026-11-05T10:00:00+00:00' }
+  ] });
+  confirms.length = 0;
+  const s = await renderSettingsView(supabase);
+  if (!supabase.rpcCalls.some((c) => c.name === 'list_my_blocks')) fail('list_my_blocks jamais appelée');
+  else ok('liste des blocages chargée via list_my_blocks (RPC uniquement)');
+  if (supabase.queries.some((q) => q.table === 'blocks')) fail('la table blocks lue directement');
+  else ok('la table blocks n\'est jamais lue directement');
+  if (!s.root.textContent.includes('Marc') || !s.root.textContent.includes('Zoé')) {
+    fail('les comptes bloqués ne sont pas affichés');
+  } else ok('les deux comptes bloqués sont affichés');
+  if (!s.root.textContent.includes('01/11/2026')) fail('date de blocage (JJ/MM/AAAA) absente');
+  else ok('date de blocage affichée au format JJ/MM/AAAA');
+
+  const unblockBtns = walk(s.root)
+    .filter((e) => e.tagName === 'BUTTON' && e.textContent.trim() === ui.settings.blocks.unblock);
+  if (unblockBtns.length !== 2) fail(`boutons « Débloquer » : ${unblockBtns.length} au lieu de 2`);
+  else {
+    await click(unblockBtns[0]);
+    const panel = confirmPanels(s.root).find((p) => p.textContent.includes(ui.settings.blocks.confirmText('Marc')));
+    if (!panel || panel.hidden !== false) fail('confirmation de déblocage non affichée');
+    else ok('déblocage confirmé par un panneau en page');
+    const before = supabase.rpcCalls.filter((c) => c.name === 'list_my_blocks').length;
+    await submitForm(walk(panel).find((e) => e.tagName === 'FORM'));
+    const call = supabase.rpcCalls.filter((c) => c.name === 'unblock_user').at(-1);
+    if (!call || call.args?.p_blocked !== 'user-9') fail(`unblock_user avec de mauvais paramètres : ${JSON.stringify(call)}`);
+    else ok('unblock_user appelé avec le bon identifiant (p_blocked)');
+    if (!byText(s.root, 'P', ui.settings.blocks.success)) fail('message de succès du déblocage absent');
+    else ok('déblocage confirmé à l\'écran');
+    if (supabase.rpcCalls.filter((c) => c.name === 'list_my_blocks').length <= before) {
+      fail('liste non rechargée après déblocage');
+    } else ok('liste rechargée après déblocage');
+  }
+  if (confirms.length) fail('window.confirm utilisé pour le déblocage');
+  else ok('aucun window.confirm pour le déblocage');
+
+  const empty = makeSupabase({ people: PEOPLE, blocks: [] });
+  const s2 = await renderSettingsView(empty);
+  if (!byText(s2.root, 'P', ui.settings.blocks.empty)) fail('état vide « Aucun compte bloqué » absent');
+  else ok('aucun blocage : état vide affiché');
+}
+
+console.log('\n== 36. Supprimer mon compte : mot SUPPRIMER, appel + déconnexion, saisie jamais stockée ==');
+{
+  const supabase = makeSupabase({ people: PEOPLE });
+  confirms.length = 0;
+  const s = await renderSettingsView(supabase);
+  const action = byText(s.root, 'BUTTON', ui.settings.delete.action);
+  const panel = confirmPanels(s.root).find((p) => p.textContent.includes(ui.settings.delete.word));
+  if (!action || !panel) fail('bouton ou panneau de suppression absent');
+  else {
+    await click(action);
+    const input = walk(panel).find((e) => e.tagName === 'INPUT');
+    const form = walk(panel).find((e) => e.tagName === 'FORM');
+    await type(input, 'nettoyage');
+    await submitForm(form);
+    if (!byText(panel, 'P', ui.settings.confirm.wrong(ui.settings.delete.word))) fail('message de saisie incorrecte absent');
+    if (supabase.rpcCalls.some((c) => c.name === 'delete_my_account')) fail('suppression envoyée avec une saisie incorrecte');
+    else ok('saisie différente de SUPPRIMER : rien n\'est envoyé');
+
+    await type(input, ui.settings.delete.word);
+    await submitForm(form);
+    const call = supabase.rpcCalls.filter((c) => c.name === 'delete_my_account').at(-1);
+    if (!call) fail('delete_my_account jamais appelé');
+    else if (call.args && Object.keys(call.args).length) fail(`delete_my_account appelé avec des paramètres : ${JSON.stringify(call.args)}`);
+    else ok('delete_my_account appelé sans paramètre (aucune saisie transmise)');
+    if (supabase.signOutCalls.length !== 1) fail('déconnexion après suppression absente');
+    else ok('déconnexion de la session après la suppression');
+    if (input.value !== '') fail('champ SUPPRIMER non vidé');
+    else ok('champ vidé : la saisie n\'est jamais conservée');
+    if (JSON.stringify(supabase.rpcCalls).includes('nettoyage')) fail('saisie brute stockée dans un appel RPC');
+    else ok('aucune saisie brute dans les appels');
+    if (confirms.length) fail('window.confirm utilisé pour la suppression');
+    else ok('aucun window.confirm pour la suppression');
+  }
+}
+
+console.log('\n== 37. Mon profil : prénom mis à jour, RLS à 0 ligne signalée ==');
+{
+  const supabase = makeSupabase({ people: PEOPLE });
+  const s = await renderSettingsView(supabase);
+  const form = walk(s.root).find((e) => e.tagName === 'FORM' && e.textContent.includes(ui.settings.profile.label));
+  const input = walk(s.root).find((e) => e.tagName === 'INPUT' && e.getAttribute('autocomplete') === 'given-name');
+  if (!form || !input) fail('formulaire du profil absent');
+  else {
+    if (input.value !== 'Alex') fail(`prénom prérempli incorrect : « ${input.value} »`);
+    else ok('prénom prérempli depuis le profil');
+    await type(input, 'Alexandre');
+    await submitForm(form);
+    const write = supabase.queries.find((q) => q.table === 'profiles' && q.op === 'update');
+    if (!write || write.payload?.display_name !== 'Alexandre') fail(`mise à jour envoyée incorrecte : ${JSON.stringify(write)}`);
+    else ok('display_name mis à jour (colonnes explicitement restreintes, pas de select *)');
+    if (!byText(s.root, 'P', ui.settings.profile.saved)) fail('confirmation de mise à jour absente');
+    else ok('mise à jour confirmée à l\'écran');
+
+    const refused = makeSupabase({ people: PEOPLE, refuseProfile: 'empty' });
+    const s2 = await renderSettingsView(refused);
+    const form2 = walk(s2.root).find((e) => e.tagName === 'FORM' && e.textContent.includes(ui.settings.profile.label));
+    const input2 = walk(form2).find((e) => e.tagName === 'INPUT');
+    await type(input2, 'Alexandre');
+    await submitForm(form2);
+    if (!byText(s2.root, 'P', ui.settings.profile.error)) fail('update à 0 ligne (RLS) non signalée');
+    else ok('update bloquée par la RLS (0 ligne touchée) : erreur affichée');
+  }
+}
+
+console.log('\n== 38. Politique de confidentialité : sans session, date du jour, drapeau d\'inactivité ==');
+{
+  // Aucune session, aucun client Supabase : la page doit s'afficher quand même.
+  const nav = [];
+  let root = new MiniEl('div');
+  renderPrivacy(root, { navigate: (r) => nav.push(r) });
+  const version = walk(root).find((e) => e.tagName === 'P' && e.textContent.startsWith('Version du '));
+  if (!version || !/Version du \d{2}\/\d{2}\/\d{4}\./.test(version.textContent)) {
+    fail(`ligne de version sans date JJ/MM/AAAA : « ${version?.textContent ?? ''} »`);
+  } else ok('version datée du jour (JJ/MM/AAAA), [DATE] remplacé');
+  const txt = root.textContent;
+  if (txt.includes('[DATE]') || txt.includes('[engagement')) fail('marqueurs du brouillon encore visibles');
+  else ok('aucun marqueur du brouillon à l\'écran');
+  if (txt.includes('|')) fail('reste de Markdown (|) visible');
+  else ok('tableaux Markdown convertis en cellules HTML (aucun pipe)');
+
+  const h2s = walk(root).filter((e) => e.tagName === 'H2');
+  if (h2s.length !== 12) fail(`12 sections attendues, ${h2s.length} trouvées`);
+  else ok('les 12 sections de la politique sont affichées');
+  const tables = walk(root).filter((e) => e.tagName === 'TABLE');
+  if (tables.length !== 3) fail(`3 tableaux attendus (données, lecteurs, hébergeurs), ${tables.length} trouvés`);
+  else ok('les 3 tableaux sont rendus en vraies cellules');
+  if (!txt.includes('leadersognon1er@gmail.com')) fail('contact du responsable absent');
+  else ok('contact du responsable présent (section 1)');
+  if (!txt.includes('n\'utilise pas ce questionnaire')) fail('avertissement de la section 11 absent');
+  else ok('avertissement violence/contrôle/peur présent (section 11)');
+
+  if (txt.includes('Inactivité')) fail('ligne d\'inactivité affichée alors que le drapeau est faux');
+  else ok('drapeau inactivityPurgeActive = false : puce d\'inactivité masquée');
+
+  PRIVACY_FLAGS.inactivityPurgeActive = true;
+  root = new MiniEl('div');
+  renderPrivacy(root, { navigate: () => {} });
+  if (!root.textContent.includes('Inactivité')) fail('drapeau vrai : ligne d\'inactivité toujours masquée');
+  else ok('drapeau = true : ligne d\'inactivité affichée');
+  PRIVACY_FLAGS.inactivityPurgeActive = false;
+  root = new MiniEl('div');
+  renderPrivacy(root, { navigate: () => {} });
+  if (root.textContent.includes('Inactivité')) fail('drapeau faux de nouveau : ligne encore affichée');
+  else ok('drapeau remis à false : ligne de nouveau masquée');
+
+  root = new MiniEl('div');
+  renderPrivacy(root, { navigate: (r) => nav.push(r) });
+  const back = byText(root, 'BUTTON', ui.privacy.back);
+  if (!back) fail('bouton de retour absent de la politique');
+  else {
+    await click(back);
+    if (nav.at(-1)?.name !== 'home') fail('retour depuis la politique non routé');
+    else ok('retour à l\'accueil depuis la politique');
+  }
+}
+
+console.log('\n== 39. Inscription : consentement obligatoire, version et âge transmis, lien politique ==');
+{
+  const supabase = makeSupabase();
+  const nav = [];
+  const root = new MiniEl('div');
+  renderLogin(root, { supabase, navigate: (r) => nav.push(r) });
+  const toggle = byText(root, 'BUTTON', ui.login.toSignup);
+  if (!toggle) fail('lien d\'inscription absent');
+  else {
+    await click(toggle);
+    const form = walk(root).find((e) => e.tagName === 'FORM');
+    const nameInput = walk(form).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'text');
+    const email = walk(form).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'email');
+    const pass = walk(form).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'password');
+    const consent = walk(form).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'checkbox');
+    if (!consent) fail('case de consentement absente du formulaire d\'inscription');
+    else if (consent.getAttribute('required') === null) fail('case de consentement non obligatoire');
+    else ok('case « 18 ans + politique » obligatoire sur l\'inscription');
+    if (!form.textContent.includes(ui.login.consentText)) fail('texte du consentement absent du formulaire');
+    else ok('texte du consentement affiché sous le formulaire');
+
+    await type(nameInput, 'Alexandria');
+    await type(email, 'sam@example.com');
+    await type(pass, 'motdepasse123');
+    await submitForm(form);
+    if (supabase.signUpCalls.length) fail('compte créé sans consentement');
+    else if (!byText(root, 'P', ui.login.consentRequired)) fail('message « Coche la case » absent');
+    else ok('inscription refusée sans consentement, message affiché');
+
+    consent.checked = true;
+    await submitForm(form);
+    if (supabase.signUpCalls.length !== 1) fail(`signUp appelé ${supabase.signUpCalls.length} fois`);
+    else {
+      const payload = supabase.signUpCalls[0];
+      const data = payload.options?.data ?? {};
+      if (data.display_name !== 'Alexandria') fail(`display_name manquant : ${JSON.stringify(data)}`);
+      else if (data.consent_version !== PRIVACY_VERSION) fail(`consent_version incorrecte : ${JSON.stringify(data.consent_version)}`);
+      else if (data.adult_confirmed !== true) fail('adult_confirmed absent');
+      else if (Object.keys(data).sort().join(',') !== 'adult_confirmed,consent_version,display_name') {
+        fail(`champs supplémentaires transmis : ${Object.keys(data).join(', ')}`);
+      } else ok('signUp : display_name + consent_version + adult_confirmed (rien d\'autre)');
+      if (JSON.stringify(data).includes('18 ans')) fail('texte du consentement envoyé en base');
+      else ok('le texte du consentement n\'est pas stocké, seulement la version et l\'âge');
+    }
+    if (!byText(root, 'P', ui.login.checkMail)) fail('message « ouvre le message » absent après inscription');
+    else ok('sans session : retour à la connexion avec confirmation par email');
+
+    const link = byText(root, 'BUTTON', ui.login.privacyLink);
+    if (!link) fail('lien « Politique de confidentialité » absent');
+    else {
+      await click(link);
+      if (nav.at(-1)?.name !== 'privacy') fail('le lien n\'ouvre pas la politique');
+      else ok('lien vers la politique (accessible sans session)');
+    }
+  }
+}
+
+console.log('\n== 40. Accueil : « Ton ou ta partenaire a délié le couple », aucune donnée résiduelle ==');
+{
+  const opts = { people: PEOPLE, couple: 'couple-1' };
+  const supabase = makeSupabase(opts);
+  const state = { seenCouple: false };
+  const navigateLog = [];
+  const ctx = {
+    supabase,
+    session: { user: { id: 'user-1' } },
+    navigate: (r) => navigateLog.push(r),
+    onLeave: () => {},
+    state
+  };
+
+  let root = new MiniEl('div');
+  await renderHome(root, ctx, null);
+  if (byText(root, 'P', ui.home.unlinkedNotice)) fail('message de déliaison affiché tant que le couple existe');
+  else ok('couple intact : aucun message de déliaison');
+  if (state.seenCouple !== true) fail('état « couple vu » non enregistré à l\'ouverture');
+  else ok('couple vu pendant la session : l\'état s\'en souvient');
+  if (root.textContent.includes(ui.pairing.title)) fail('appairage affiché alors que le couple existe');
+  else ok('catégories affichées (pas d\'appairage)');
+
+  // Le couple est supprimé pendant que l'application est ouverte.
+  opts.couple = null;
+  root = new MiniEl('div');
+  await renderHome(root, ctx, null);
+  if (!byText(root, 'P', ui.home.unlinkedNotice)) fail('message « Ton ou ta partenaire a délié le couple » absent');
+  else ok('message de déliaison affiché sur l\'accueil');
+  const h1 = walk(root).find((e) => e.tagName === 'H1');
+  if (!h1 || !h1.textContent.startsWith(ui.pairing.title)) fail('retour à l\'appairage absent');
+  else ok('retour à l\'écran d\'appairage');
+  if (root.textContent.includes(ui.synthesis.title)) fail('écran des catégories encore affiché après déliaison');
+  else ok('aucune donnée du couple résiduelle à l\'écran');
+
+  // Un notice explicite (routeur) prime sur le message automatique.
+  root = new MiniEl('div');
+  await renderHome(root, ctx, 'NOTICE EXPLICITE');
+  if (!byText(root, 'P', 'NOTICE EXPLICITE') || byText(root, 'P', ui.home.unlinkedNotice)) {
+    fail('le notice du routeur ne prime pas sur le message automatique');
+  } else ok('notice du routeur prioritaire sur le message automatique');
+
+  const settingsBtn = byText(root, 'BUTTON', ui.home.settings);
+  if (!settingsBtn) fail('bouton Paramètres absent de l\'accueil');
+  else {
+    await click(settingsBtn);
+    if (navigateLog.at(-1)?.name !== 'settings') fail('bouton Paramètres non routé');
+    else ok('bouton Paramètres présent sur l\'accueil et routé');
+  }
 }
 
 await server.close();

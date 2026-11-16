@@ -22,7 +22,12 @@ export const ui = {
     checkMail: 'Presque fini ! Ouvre le message que nous venons de t\'envoyer pour confirmer ton adresse, puis reviens te connecter.',
     badCredentials: 'Email ou mot de passe incorrect.',
     notConfirmed: 'Ton adresse email n\'est pas encore confirmée. Vérifie ta boîte mail.',
-    generic: 'Une erreur est survenue. Réessaie dans un instant.'
+    generic: 'Une erreur est survenue. Réessaie dans un instant.',
+    consentText: 'J\'ai 18 ans ou plus, et j\'ai lu la politique de confidentialité. '
+      + 'J\'accepte que mes réponses soient enregistrées pour faire fonctionner MON BINÔME. '
+      + 'Mon ou ta partenaire ne les verra qu\'après que nous aurons tous les deux validé une catégorie.',
+    consentRequired: 'Coche la case ci-dessus pour créer ton compte.',
+    privacyLink: 'Lire la politique de confidentialité'
   },
   home: {
     title: 'Bienvenue',
@@ -34,6 +39,8 @@ export const ui = {
     regenerateConfirm: 'Ton ancien code ne fonctionnera plus et les demandes en attente seront annulées. Continuer ?',
     regenerated: 'Nouveau code généré.',
     logout: 'Me déconnecter',
+    settings: 'Paramètres',
+    unlinkedNotice: 'Ton ou ta partenaire a délié le couple.',
     shareText: (code) => `Voici mon code pour rejoindre MON BINÔME : ${code}`,
     buildInfo: (version, commit) => `Version ${version} · commit ${commit}`
   },
@@ -214,6 +221,73 @@ export const ui = {
   setup: {
     title: 'Configuration manquante',
     text: 'Copie .env.example vers .env et renseigne VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY, puis relance.'
+  },
+  // Écran Paramètres : confirmations TOUJOURS dans la page (jamais window.confirm).
+  settings: {
+    title: 'Paramètres',
+    back: 'Retour à l\'accueil',
+    confirm: {
+      cancel: 'Annuler',
+      label: (word) => `Écris ${word} pour confirmer`,
+      wrong: (word) => `La saisie ne correspond pas : écris ${word} pour confirmer.`
+    },
+    profile: {
+      title: 'Mon profil',
+      label: 'Ton prénom',
+      save: 'Enregistrer',
+      saved: 'Prénom mis à jour.',
+      error: 'Mise à jour impossible. Réessaie.',
+      empty: 'Entre un prénom.'
+    },
+    privacy: {
+      title: 'Confidentialité',
+      text: 'Ce que nous enregistrons, qui peut lire tes réponses et comment tout effacer.',
+      link: 'Lire la politique de confidentialité'
+    },
+    safety: {
+      title: 'Sécurité'
+    },
+    unlink: {
+      title: 'Délier le couple',
+      text: 'Délier supprime le couple et efface définitivement toutes vos réponses, vos notes, vos objectifs '
+        + 'et votre bilan, pour tous les deux.',
+      blockLabel: 'Bloquer aussi mon ou ma partenaire : nous ne pourrons plus nous envoyer de demandes.',
+      action: 'Délier',
+      confirmTitle: 'Confirmer la déliaison',
+      confirmText: 'Toutes vos données communes seront supprimées définitivement, pour tous les deux.',
+      confirmOk: 'Confirmer',
+      word: 'DÉLIER',
+      success: 'Vous êtes délié(e). Toutes vos données communes ont été supprimées.'
+    },
+    blocks: {
+      title: 'Comptes bloqués',
+      intro: 'Les personnes bloquées ne peuvent plus t\'envoyer de demandes de liaison.',
+      empty: 'Aucun compte bloqué.',
+      blockedOn: (date) => `Bloqué le ${date}`,
+      unblock: 'Débloquer',
+      confirmTitle: 'Débloquer ce compte',
+      confirmText: (name) => `${name} pourra de nouveau t\'envoyer des demandes de liaison.`,
+      confirmOk: 'Confirmer',
+      success: 'Compte débloqué.'
+    },
+    delete: {
+      title: 'Supprimer mon compte',
+      text: 'La suppression efface définitivement ton compte, votre couple et toutes vos données. '
+        + 'Cette action est irréversible.',
+      action: 'Supprimer mon compte',
+      confirmTitle: 'Confirmer la suppression',
+      confirmText: 'Ton compte et toutes vos données seront supprimés définitivement.',
+      confirmOk: 'Supprimer définitivement',
+      word: 'SUPPRIMER',
+      success: 'Ton compte a été supprimé.'
+    },
+    about: {
+      title: 'À propos'
+    }
+  },
+  privacy: {
+    title: 'Politique de confidentialité',
+    back: 'Retour à l\'accueil'
   },
   // Codes d'erreur renvoyés par les fonctions RPC de supabase/schema.sql
   errors: {

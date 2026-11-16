@@ -10,7 +10,7 @@ const COMMIT_REF = typeof __COMMIT_REF__ === 'string' ? __COMMIT_REF__ : 'local'
 
 // Accueil : appairage tant qu'aucun partenaire n'est lié, sinon les catégories.
 export async function renderHome(root, ctx, notice) {
-  const { supabase, session } = ctx;
+  const { supabase, session, navigate } = ctx;
   const t = ui.home;
 
   // ⚠️ Toujours lister les colonnes de profiles (contact_code n'est pas lisible).
@@ -19,17 +19,27 @@ export async function renderHome(root, ctx, notice) {
     supabase.from('couple_members').select('couple_id').eq('user_id', session.user.id).maybeSingle()
   ]);
   const displayName = profile.data?.display_name ?? '';
+  const coupleId = member.data?.couple_id ?? null;
 
-  if (notice) root.append(h('p', { class: 'msg', role: 'status' }, notice));
+  // « Ton ou ta partenaire a délié le couple » : affiché seulement si le
+  // couple a existé pendant cette session puis a disparu (état porté par le
+  // ctx, stable d'un rendu à l'autre) — jamais à la première ouverture.
+  if (coupleId && ctx.state) ctx.state.seenCouple = true;
+  const noticeText = notice ?? ((ctx.state?.seenCouple && !coupleId) ? t.unlinkedNotice : null);
+  if (noticeText) root.append(h('p', { class: 'msg', role: 'status' }, noticeText));
 
-  if (!member.data?.couple_id) await renderPairing(root, ctx, { displayName });
-  else await renderCategories(root, ctx, { coupleId: member.data.couple_id, displayName });
+  if (!coupleId) await renderPairing(root, ctx, { displayName });
+  else await renderCategories(root, ctx, { coupleId, displayName });
 
   // Avertissement de sécurité toujours visible sur l'accueil.
   root.append(
     h('section', { class: 'card warn' }, h('p', {}, content.common.safety_warning)),
-    h('p', { class: 'center' },
-      h('button', { class: 'link', type: 'button', onclick: () => supabase.auth.signOut() }, t.logout)),
+    h('div', { class: 'row' },
+      h('button', {
+        class: 'btn secondary', type: 'button',
+        onclick: () => navigate({ name: 'settings' })
+      }, t.settings),
+      h('button', { class: 'btn secondary', type: 'button', onclick: () => supabase.auth.signOut() }, t.logout)),
     // Version et commit déployés : sert à vérifier que la page affichée est
     // bien celle du dernier déploiement.
     h('p', { class: 'muted version center' }, t.buildInfo(APP_VERSION, COMMIT_REF))

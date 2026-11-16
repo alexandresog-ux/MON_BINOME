@@ -1,5 +1,6 @@
 import { h } from '../dom.js';
 import { ui } from '../data/ui.fr.js';
+import { PRIVACY_VERSION } from '../data/privacy.fr.js';
 
 const field = (label, input) => h('label', { class: 'field' }, h('span', {}, label), input);
 
@@ -10,7 +11,7 @@ function authErrorMessage(err) {
   return ui.login.generic;
 }
 
-export function renderLogin(root, { supabase }) {
+export function renderLogin(root, { supabase, navigate }) {
   const t = ui.login;
   let mode = 'login';
   const card = h('section', { class: 'card' });
@@ -30,6 +31,12 @@ export function renderLogin(root, { supabase }) {
     const name = mode === 'signup'
       ? h('input', { type: 'text', required: true, maxlength: 40, autocomplete: 'given-name' })
       : null;
+    // Consentement : case obligatoire à l'inscription uniquement (18 ans +
+    // politique de confidentialité). Le texte n'est jamais envoyé : seule la
+    // version du texte et la confirmation de majorité partent en base.
+    const consent = mode === 'signup'
+      ? h('input', { type: 'checkbox', required: true, name: 'consent' })
+      : null;
     const msg = h('p', { class: 'msg', role: 'status' }, message);
     const submit = h('button', { class: 'btn', type: 'submit' }, mode === 'login' ? t.submitLogin : t.submitSignup);
 
@@ -45,10 +52,22 @@ export function renderLogin(root, { supabase }) {
             });
             if (error) throw error;
           } else {
+            if (!consent.checked) {
+              msg.textContent = t.consentRequired;
+              submit.disabled = false;
+              return;
+            }
             const { data, error } = await supabase.auth.signUp({
               email: email.value.trim(),
               password: password.value,
-              options: { data: { display_name: name.value.trim() }, emailRedirectTo: window.location.origin }
+              options: {
+                data: {
+                  display_name: name.value.trim(),
+                  consent_version: PRIVACY_VERSION,
+                  adult_confirmed: true
+                },
+                emailRedirectTo: window.location.origin
+              }
             });
             if (error) throw error;
             if (!data.session) { mode = 'login'; draw(t.checkMail); return; }
@@ -63,6 +82,7 @@ export function renderLogin(root, { supabase }) {
       name && field(t.name, name),
       field(t.email, email),
       field(t.password, password),
+      consent && h('label', { class: 'check' }, consent, h('span', {}, t.consentText)),
       submit,
       msg
     );
@@ -72,6 +92,14 @@ export function renderLogin(root, { supabase }) {
       onclick: () => { mode = mode === 'login' ? 'signup' : 'login'; draw(); }
     }, mode === 'login' ? t.toSignup : t.toLogin);
 
-    card.replaceChildren(h('h2', {}, mode === 'login' ? t.loginTitle : t.signupTitle), form, toggle);
+    // Politique de confidentialité : accessible des deux côtés du formulaire,
+    // y compris sans session.
+    const privacyLink = h('p', { class: 'center' },
+      h('button', {
+        class: 'link', type: 'button',
+        onclick: () => navigate?.({ name: 'privacy' })
+      }, t.privacyLink));
+
+    card.replaceChildren(h('h2', {}, mode === 'login' ? t.loginTitle : t.signupTitle), form, toggle, privacyLink);
   }
 }

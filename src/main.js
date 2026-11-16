@@ -11,6 +11,8 @@ import { renderReveal } from './views/reveal.js';
 import { renderAlignment } from './views/alignment.js';
 import { renderSmart } from './views/smart.js';
 import { renderSynthesis } from './views/synthesis.js';
+import { renderSettings } from './views/settings.js';
+import { renderPrivacy } from './views/privacy.js';
 import { createActivity } from './activity.js';
 import { installBanner } from './views/installBanner.js';
 import { updateBanner } from './views/updateBanner.js';
@@ -21,6 +23,9 @@ let currentSession = null;
 let route = { name: 'home' };
 // Hooks de sortie d'écran (désabonnement Realtime, listeners…).
 let leaveHooks = [];
+// État de navigation persistant d'un rendu à l'autre : souvenir du couple vu
+// pendant cette session (pour « Ton ou ta partenaire a délié le couple »).
+const appState = { seenCouple: false };
 
 async function render() {
   for (const hook of leaveHooks.splice(0)) {
@@ -29,14 +34,21 @@ async function render() {
   root.replaceChildren();
   const main = h('main', { class: 'wrap' });
   root.append(main);
+  // La politique de confidentialité est lisible SANS session : elle est routée
+  // avant la vérification de connexion (et avant le reset de route).
+  if (route.name === 'privacy') {
+    renderPrivacy(main, { navigate });
+    return;
+  }
   if (!currentSession) {
     route = { name: 'home' };
-    renderLogin(main, { supabase });
+    renderLogin(main, { supabase, navigate });
     return;
   }
   const ctx = {
     supabase, session: currentSession, navigate,
-    onLeave: (fn) => { leaveHooks.push(fn); }
+    onLeave: (fn) => { leaveHooks.push(fn); },
+    state: appState
   };
   try {
     if (route.name === 'questions') await renderQuestions(main, ctx, route.categoryId);
@@ -45,6 +57,7 @@ async function render() {
     else if (route.name === 'alignment') await renderAlignment(main, ctx, route.categoryId);
     else if (route.name === 'smart') await renderSmart(main, ctx, route.categoryId);
     else if (route.name === 'synthesis') await renderSynthesis(main, ctx);
+    else if (route.name === 'settings') await renderSettings(main, ctx);
     else await renderHome(main, ctx, route.notice);
   } catch (err) {
     console.error(err);
@@ -103,6 +116,8 @@ if (!supabaseReady) {
     if (uid === currentUid) return;
     currentUid = uid;
     currentSession = session ?? null;
+    // Changement de compte (ou déconnexion) : on oublie le couple précédent.
+    appState.seenCouple = false;
     route = { name: 'home' };
     // setTimeout : ne jamais appeler supabase (await) directement dans ce callback (risque de blocage).
     setTimeout(() => render(), 0);
