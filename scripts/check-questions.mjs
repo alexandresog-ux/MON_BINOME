@@ -1,6 +1,7 @@
 // Banc d'essai : vérifie que chaque catégorie expose bien ses 8 questions à l'écran.
 // Mini-DOM + stub Supabase, aucun réseau, aucune base réelle.
 // Usage : node scripts/check-questions.mjs
+import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
 // --- Mini-DOM -------------------------------------------------------
@@ -57,9 +58,12 @@ globalThis.document = {
 // Mini-window : addEventListener/removeEventListener/dispatchEvent réels, pour
 // tester l'événement « app:before-reload » (sauvegarde avant un rechargement).
 const winListeners = {};
+const confirms = [];
+let printCalls = 0;
 globalThis.window = {
-  confirm: () => true,
+  confirm: (msg) => { confirms.push(String(msg)); return true; },
   location: { reload() {} },
+  print() { printCalls += 1; },
   addEventListener(type, fn) { (winListeners[type] ??= []).push(fn); },
   removeEventListener(type, fn) {
     winListeners[type] = (winListeners[type] ?? []).filter((f) => f !== fn);
@@ -126,6 +130,7 @@ function makeSupabase(opts = {}) {
   const people = opts.people ?? [];
   const alignRows = [...(opts.alignment ?? [])];
   const goalRows = [...(opts.goalRow ? [opts.goalRow] : [])];
+  const reviewRows = [...(opts.review ? [opts.review] : [])];
   const MY_ID = 'user-1';
   // Horodatages de la table smart_goals (trigger : now() à chaque écriture).
   let stampN = 0;
@@ -155,14 +160,22 @@ function makeSupabase(opts = {}) {
         return Promise.resolve({ data: [row], error: null });
       }
       // Politique alignment_select : mes lignes toujours ; celles du partenaire
-      // seulement quand les deux lignes de la catégorie existent (RLS).
+      // seulement quand les deux lignes de la CATÉGORIE existent (RLS). Les
+      // lectures par couple (synthèse) voient donc 0, 1 ou 2 lignes par ligne
+      // de catégorie.
       const scoped = alignRows.filter((r) =>
         Object.entries(s.filters).every(([k, v]) => r[k] === v));
-      const revealed = scoped.length === 2;
-      return Promise.resolve({
-        data: scoped.filter((r) => r.user_id === MY_ID || revealed),
-        error: null
-      });
+      const byCat = new Map();
+      for (const r of scoped) {
+        if (!byCat.has(r.category_id)) byCat.set(r.category_id, []);
+        byCat.get(r.category_id).push(r);
+      }
+      const visible = [];
+      for (const rowsOfCat of byCat.values()) {
+        const revealed = rowsOfCat.length === 2;
+        visible.push(...rowsOfCat.filter((r) => r.user_id === MY_ID || revealed));
+      }
+      return Promise.resolve({ data: visible, error: null });
     }
     if (s.table === 'smart_goals') {
       // Filtres posés par la vue : couple, catégorie, et updated_at (chaîne
@@ -201,6 +214,35 @@ function makeSupabase(opts = {}) {
       }
       return Promise.resolve({
         data: goalRows.filter((r) => match(r, s.filters)).map((r) => ({ ...r })),
+        error: null
+      });
+    }
+    // Bilan final du couple : une ligne par couple, RLS couple seule (jamais
+    // de condition de révélation). Une update filtrée par un updated_at
+    // périmé renvoie 0 ligne, exactement comme PostgREST.
+    if (s.table === 'couple_review') {
+      const match = (r, f) => (!('couple_id' in f) || r.couple_id === f.couple_id)
+        && (!('updated_at' in f) || r.updated_at === f.updated_at);
+      if (s.op === 'update') {
+        const row = reviewRows.find((r) => match(r, s.filters));
+        if (!row) return Promise.resolve({ data: [], error: null });
+        Object.assign(row, s.payload, { updated_at: stamp(), updated_by: MY_ID });
+        return Promise.resolve({ data: [{ ...row }], error: null });
+      }
+      if (s.op === 'upsert') {
+        const row = reviewRows.find((r) => r.couple_id === s.payload.couple_id);
+        if (row) {
+          // ignoreDuplicates : la ligne du partenaire existe, 0 ligne renvoyée.
+          if (s.opts?.ignoreDuplicates) return Promise.resolve({ data: [], error: null });
+          Object.assign(row, s.payload, { updated_at: stamp(), updated_by: MY_ID });
+          return Promise.resolve({ data: [{ ...row }], error: null });
+        }
+        const created = { ...s.payload, updated_at: stamp(), updated_by: MY_ID };
+        reviewRows.push(created);
+        return Promise.resolve({ data: [{ ...created }], error: null });
+      }
+      return Promise.resolve({
+        data: reviewRows.filter((r) => match(r, s.filters)).map((r) => ({ ...r })),
         error: null
       });
     }
@@ -266,7 +308,7 @@ function makeSupabase(opts = {}) {
         }
       }
     },
-    rows, goalRows, log, queries, rpcs
+    rows, goalRows, reviewRows, log, queries, rpcs
   };
 }
 
@@ -280,6 +322,8 @@ const { renderQuestions } = await server.ssrLoadModule('/src/views/questions.js'
 const { renderReveal } = await server.ssrLoadModule('/src/views/reveal.js');
 const { renderAlignment } = await server.ssrLoadModule('/src/views/alignment.js');
 const { renderSmart } = await server.ssrLoadModule('/src/views/smart.js');
+const { renderSynthesis } = await server.ssrLoadModule('/src/views/synthesis.js');
+const { renderCategories } = await server.ssrLoadModule('/src/views/categories.js');
 const { createActivity } = await server.ssrLoadModule('/src/activity.js');
 const { ui } = await server.ssrLoadModule('/src/data/ui.fr.js');
 const content = (await server.ssrLoadModule('/src/data/questions.fr.json')).default;
@@ -349,6 +393,29 @@ async function renderSmartView(supabase, categoryId) {
   await renderSmart(root, ctx, categoryId);
   return { root, navigateLog, leave };
 }
+
+// Rendu de l'écran « Notre synthèse » (tableau + bilan final + export PDF).
+async function renderSynthesisView(supabase) {
+  const root = new MiniEl('div');
+  const navigateLog = [];
+  let leave = () => {};
+  const ctx = {
+    supabase,
+    session: { user: { id: 'user-1' } },
+    navigate: (r) => navigateLog.push(r),
+    onLeave: (fn) => { leave = fn; }
+  };
+  await renderSynthesis(root, ctx);
+  return { root, navigateLog, leave };
+}
+
+// Ligne du tableau de synthèse portant ce titre de catégorie (première cellule).
+const synthRow = (root, title) =>
+  walk(root).find((e) => e.tagName === 'TR'
+    && e.childNodes.length && e.childNodes[0].textContent.trim() === title);
+
+// Cellules d'une ligne du tableau (sans l'en-tête de catégorie).
+const synthCells = (row) => row.childNodes.slice(1).map((c) => c.textContent.trim());
 
 const PEOPLE = [
   { id: 'user-1', display_name: 'Alex' },
@@ -1236,6 +1303,333 @@ console.log('\n== 25. touch_activity : échec silencieux, le rendu continue ==')
   const root = await renderCategory(content.categories[0], supabase);
   if (questionEl(root)) ok('échec silencieux : le rendu des questions continue normalement');
   else fail('le rendu est interrompu après l\'échec de touch_activity');
+}
+
+console.log('\n== 26. Notre synthèse : les deux notes, sinon « — », 12 lignes, accueil ==');
+{
+  const cat1 = content.categories[0];
+  const cat2 = content.categories[1];
+  const cat3 = content.categories[2];
+  const status = [
+    { couple_id: 'couple-1', user_id: 'user-1', category_id: cat1.id, validated_at: '2026-01-01T00:00:00Z' },
+    { couple_id: 'couple-1', user_id: 'user-2', category_id: cat1.id, validated_at: '2026-01-02T00:00:00Z' },
+    { couple_id: 'couple-1', user_id: 'user-1', category_id: cat2.id, validated_at: '2026-01-03T00:00:00Z' },
+    { couple_id: 'couple-1', user_id: 'user-2', category_id: cat2.id, validated_at: '2026-01-04T00:00:00Z' }
+  ];
+  const alignment = [
+    // Une seule ligne en base : la note du partenaire n'est pas rendue (RLS).
+    { couple_id: 'couple-1', user_id: 'user-1', category_id: cat1.id, score: 7 },
+    // Les deux lignes : les deux notes s'affichent.
+    { couple_id: 'couple-1', user_id: 'user-1', category_id: cat2.id, score: 7 },
+    { couple_id: 'couple-1', user_id: 'user-2', category_id: cat2.id, score: 9 }
+  ];
+  const supabase = makeSupabase({
+    people: PEOPLE, status, alignment,
+    goalRow: {
+      couple_id: 'couple-1', category_id: cat1.id,
+      s_text: 'Télécharger notre budget commun',
+      m_text: 'Ouvrir un tableur et y entrer nos revenus du mois',
+      a_text: 'Chacun note ses trois postes de dépenses',
+      r_text: 'Relire le budget ensemble le dernier dimanche du mois',
+      deadline: '2026-06-15'
+    }
+  });
+  const s = await renderSynthesisView(supabase);
+
+  const row1 = synthRow(s.root, cat1.title);
+  const row2 = synthRow(s.root, cat2.title);
+  const row3 = synthRow(s.root, cat3.title);
+  if (!row1 || !row2 || !row3) fail('le tableau ne contient pas les lignes des catégories');
+  else {
+    // Cellules : [statut, ma note, leur note, objectif, complet].
+    const c1 = synthCells(row1);
+    const c2 = synthCells(row2);
+    const c3 = synthCells(row3);
+    if (c1[2] !== '—') fail(`une seule note en base : la colonne du partenaire affiche « ${c1[2]} » au lieu de « — »`);
+    else ok('une seule note en base : le partenaire affiche « — »');
+    if (c2[1] !== '7' || c2[2] !== '9') fail(`deux lignes en base : attendu 7 et 9, obtenu ${JSON.stringify([c2[1], c2[2]])}`);
+    else ok('deux notes en base : les deux colonnes affichées (7 et 9)');
+    if (c1[0] !== ui.synthesis.status.revealed || c3[0] !== ui.synthesis.status.todo) {
+      fail(`statuts : attendu « ${ui.synthesis.status.revealed} » / « ${ui.synthesis.status.todo} », obtenu « ${c1[0]} » / « ${c3[0]} »`);
+    } else ok('statuts : « Révélée » quand les deux ont validé, « À commencer » sinon');
+    if (!c1[3].includes('Télécharger notre budget commun') || !c1[3].includes('Échéance : 15/06/2026')) {
+      fail(`objectif SMART absent du tableau : « ${c1[3]} »`);
+    } else ok('objectif SMART et échéance affichés dans le tableau');
+    if (c1[4] !== 'Oui' || c2[4] !== 'Non') fail(`complétude : attendu Oui/Non, obtenu ${c1[4]}/${c2[4]}`);
+    else ok('objectif complet : « Oui » avec les 4 lettres + échéance, « Non » sinon');
+    if (c2[3] !== '—') fail(`sans objectif : la cellule affiche « ${c2[3]} » au lieu de « — »`);
+    else ok('sans objectif : la cellule affiche « — »');
+  }
+
+  const trs = walk(s.root).filter((e) => e.tagName === 'TR');
+  if (trs.length !== 13) fail(`attendu 13 lignes de tableau (1 en-tête + 12), obtenu ${trs.length}`);
+  else ok('les 12 catégories sont présentes dans le tableau');
+
+  const thTexts = walk(s.root).filter((e) => e.tagName === 'TH').map((e) => e.textContent.trim());
+  if (!thTexts.includes('Alex') || !thTexts.includes('Sam')) fail(`en-têtes : prénoms absents (${JSON.stringify(thTexts)})`);
+  else ok('en-têtes du tableau : les deux prénoms (Alex et Sam)');
+
+  s.leave();
+
+  // Accès depuis l'accueil : un bouton « Notre synthèse » qui ouvre l'écran.
+  const sbHome = makeSupabase({ people: PEOPLE, status: [] });
+  const root2 = new MiniEl('div');
+  const navLog2 = [];
+  await renderCategories(root2, {
+    supabase: sbHome, session: { user: { id: 'user-1' } },
+    navigate: (r) => navLog2.push(r)
+  }, { coupleId: 'couple-1', displayName: 'Alex' });
+  const entryBtn = byText(root2, 'BUTTON', ui.synthesis.title);
+  if (!entryBtn) fail('bouton « Notre synthèse » absent de l\'accueil');
+  else {
+    await click(entryBtn);
+    if (navLog2.some((r) => r.name === 'synthesis')) ok('l\'accueil ouvre Notre synthèse');
+    else fail(`le bouton de l'accueil n'ouvre pas la synthèse : ${JSON.stringify(navLog2)}`);
+  }
+}
+
+console.log('\n== 27. Synthèse et export : jamais la table answers, lectures par couple ==');
+{
+  const supabase = makeSupabase({ people: PEOPLE, status: [] });
+  const s = await renderSynthesisView(supabase);
+  const tables = supabase.queries.map((q) => q.table);
+  if (tables.includes('answers')) fail(`la table answers est lue sur l'écran de synthèse : ${JSON.stringify(supabase.queries.filter((q) => q.table === 'answers'))}`);
+  else ok('aucune lecture de la table answers sur l\'écran de synthèse');
+
+  const dataTables = ['category_status', 'alignment', 'smart_goals', 'couple_review'];
+  const bad = supabase.queries.filter((q) => dataTables.includes(q.table)
+    && q.op === 'select' && (!('couple_id' in q.filters) || 'user_id' in q.filters));
+  if (bad.length) fail(`lectures non filtrées par couple_id ou filtrées par user_id : ${JSON.stringify(bad)}`);
+  else ok('statut, notes, objectifs et bilan lus par couple_id uniquement (jamais par user_id)');
+
+  const exportBtn = byText(s.root, 'BUTTON', ui.synthesis.exportPdf);
+  if (!exportBtn) fail('bouton « Enregistrer en PDF » absent');
+  else {
+    const before = supabase.queries.length;
+    await click(exportBtn);
+    const added = supabase.queries.slice(before);
+    if (added.length) fail(`l'export a déclenché ${added.length} requête(s) : ${JSON.stringify(added.map((q) => q.table))}`);
+    else ok('export : aucune requête, aucune réponse imprimée');
+  }
+  s.leave();
+}
+
+console.log('\n== 28. Bilan : création sans écrasement, updated_at, conflit avec brouillon ==');
+
+// A. Création : ton ou ta partenaire écrit la ligne pendant mon debounce.
+{
+  const supabase = makeSupabase({ people: PEOPLE });
+  const s = await renderSynthesisView(supabase);
+  const tas = textareas(s.root);
+  if (tas.length !== 4) fail(`attendu 4 zones de texte pour le bilan, obtenu ${tas.length}`);
+  else {
+    focusEl(tas[0]);
+    await type(tas[0], 'Nos accords');
+    supabase.reviewRows.push({
+      couple_id: 'couple-1', top_agreements: 'LEURS accords', topics_to_explore: 'Leurs sujets',
+      shared_non_negotiables: '', disputed_non_negotiables: '', next_review_date: null,
+      updated_at: '2026-11-16T10:00:00.000001+00:00', updated_by: 'user-2'
+    });
+    await sleep(950);
+    const row = supabase.reviewRows.find((r) => r.couple_id === 'couple-1');
+    if (row.top_agreements !== 'LEURS accords') fail(`la création a écrasé la ligne du partenaire : « ${row.top_agreements} »`);
+    else ok('création concurrente : ignoreDuplicates, la ligne du partenaire n\'est pas écrasée');
+    if (tas[0].value !== 'Nos accords') fail(`mon brouillon a été perdu : « ${tas[0].value} »`);
+    else ok('conflit à la création : mon brouillon reste à l\'écran');
+    if (!byText(s.root, 'P', ui.synthesis.conflict)) fail('message de conflit absent après la création concurrente');
+    else ok('message « Nous avons rechargé sa version » affiché');
+  }
+  s.leave();
+}
+
+// B. Mises à jour : filtre updated_at brut, puis la valeur renvoyée remplace l'ancienne.
+{
+  const initial = {
+    couple_id: 'couple-1', top_agreements: 'Accords initiaux', topics_to_explore: '',
+    shared_non_negotiables: '', disputed_non_negotiables: '', next_review_date: null,
+    updated_at: '2026-11-16T09:00:00.000001+00:00', updated_by: 'user-2'
+  };
+  const supabase = makeSupabase({ people: PEOPLE, review: { ...initial } });
+  const s = await renderSynthesisView(supabase);
+  const tas = textareas(s.root);
+  const updates = () => supabase.queries.filter((q) => q.table === 'couple_review' && q.op === 'update');
+
+  focusEl(tas[0]);
+  await type(tas[0], 'Accords v2');
+  await sleep(950);
+  let w = updates();
+  if (w.length !== 1) fail(`1re sauvegarde : attendu 1 update, obtenu ${w.length}`);
+  else if (w[0].filters.updated_at !== initial.updated_at) fail(`1re update sans le filtre updated_at brut : ${JSON.stringify(w[0].filters)}`);
+  else ok('1re update : filtre updated_at = chaîne brute de la lecture');
+  blurEl(tas[0]);
+
+  await type(tas[1], 'Sujets v2');
+  await sleep(950);
+  w = updates();
+  if (w.length !== 2) fail(`2e sauvegarde : attendu 2 updates, obtenu ${w.length}`);
+  else if (w[1].filters.updated_at === w[0].filters.updated_at) fail('2e update avec l\'updated_at périmé de la 1re lecture : faux conflit');
+  else ok('2e update : updated_at remplacé par la valeur renvoyée, pas de faux conflit');
+
+  await type(tas[2], 'Non négociables v2');
+  await sleep(950);
+  w = updates();
+  if (w.length !== 3) fail(`3e sauvegarde : attendu 3 updates, obtenu ${w.length}`);
+  else if (new Set(w.map((q) => q.filters.updated_at)).size !== 3) fail(`3 updates mais updated_at non renouvelés : ${JSON.stringify(w.map((q) => q.filters.updated_at))}`);
+  else ok('3e update : chaque écriture porte l\'updated_at de la précédente');
+
+  if (byText(s.root, 'P', ui.synthesis.conflict)) fail('faux conflit : le message de modification concurrente s\'affiche');
+  else ok('aucun faux conflit sur les 2e et 3e sauvegardes');
+
+  const row = supabase.reviewRows[0];
+  if (row.top_agreements !== 'Accords v2' || row.topics_to_explore !== 'Sujets v2'
+    || row.shared_non_negotiables !== 'Non négociables v2') {
+    fail(`valeurs finales incorrectes en base : ${JSON.stringify(row)}`);
+  } else ok('les trois champs sont bien en base');
+  s.leave();
+}
+
+// C1. Conflit sur le champ en cours d'écriture : brouillon gardé, base intacte.
+{
+  const supabase = makeSupabase({
+    people: PEOPLE,
+    review: {
+      couple_id: 'couple-1', top_agreements: 'Leur version initiale', topics_to_explore: '',
+      shared_non_negotiables: '', disputed_non_negotiables: '', next_review_date: null,
+      updated_at: '2026-11-16T08:00:00.000001+00:00', updated_by: 'user-2'
+    }
+  });
+  const s = await renderSynthesisView(supabase);
+  const ta = textareas(s.root)[0];
+  focusEl(ta);
+  await type(ta, 'Mon brouillon');
+  // Ton ou ta partenaire modifie ce MÊME champ pendant ta saisie.
+  supabase.reviewRows[0].top_agreements = 'Sa nouvelle version';
+  supabase.reviewRows[0].updated_at = '2026-11-16T08:30:00.000001+00:00';
+  await sleep(950);
+  if (ta.value !== 'Mon brouillon') fail(`champ focalisé : brouillon écrasé par la version serveur (« ${ta.value} »)`);
+  else ok('champ en cours d\'écriture : mon brouillon reste affiché');
+  if (!byText(s.root, 'P', ui.synthesis.conflict)) fail('message de conflit absent');
+  else ok('conflit signalé : « Nous avons rechargé sa version »');
+  if (supabase.reviewRows[0].top_agreements !== 'Sa nouvelle version') fail('ma saisie a écrasé la base');
+  else ok('la version du partenaire reste en base');
+  const nonSelects = () => supabase.queries.filter((q) => q.table === 'couple_review' && q.op !== 'select').length;
+  const before = nonSelects();
+  s.leave();
+  await sleep(30);
+  if (nonSelects() > before) fail('brouillon en conflit réécrit automatiquement en quittant l\'écran');
+  else ok('en quittant, le brouillon en conflit n\'est jamais envoyé');
+}
+
+// C2. Même conflit, champ NON focalisé : le brouillon n'est jamais perdu.
+{
+  const supabase = makeSupabase({
+    people: PEOPLE,
+    review: {
+      couple_id: 'couple-1', top_agreements: 'Leur version initiale', topics_to_explore: '',
+      shared_non_negotiables: '', disputed_non_negotiables: '', next_review_date: null,
+      updated_at: '2026-11-16T07:00:00.000001+00:00', updated_by: 'user-2'
+    }
+  });
+  const s = await renderSynthesisView(supabase);
+  const ta = textareas(s.root)[0];
+  await type(ta, 'Mon brouillon');
+  blurEl(ta);
+  supabase.reviewRows[0].top_agreements = 'Sa nouvelle version';
+  supabase.reviewRows[0].updated_at = '2026-11-16T07:30:00.000001+00:00';
+  await sleep(950);
+  if (ta.value !== 'Mon brouillon') fail(`champ non focalisé : brouillon écrasé (« ${ta.value} »)`);
+  else ok('champ non focalisé : brouillon conservé quand la version serveur arrive');
+  if (!byText(s.root, 'P', ui.synthesis.conflict)) fail('message de conflit absent (champ non focalisé)');
+  else ok('conflit signalé aussi hors du champ en cours d\'écriture');
+  s.leave();
+}
+
+console.log('\n== 29. Date du prochain bilan dans le passé : refusée, rien n\'est envoyé ==');
+{
+  // Saisie directement passée.
+  const supabase = makeSupabase({ people: PEOPLE });
+  const s = await renderSynthesisView(supabase);
+  const date = dateInput(s.root);
+  if (!date) fail('champ de date du prochain bilan absent');
+  else {
+    await type(date, '2020-01-01');
+    if (date.value === '2020-01-01') fail('date passée acceptée à la saisie');
+    else ok('date passée refusée à la saisie (le champ reste inchangé)');
+    if (!byText(s.root, 'P', ui.synthesis.datePast)) fail('avertissement « Choisis une date… » absent');
+    else ok('avertissement affiché');
+    await flushWindow();
+    const writes = supabase.queries.filter((q) => q.table === 'couple_review' && q.op !== 'select');
+    if (writes.length) fail(`date passée envoyée en base : ${JSON.stringify(writes)}`);
+    else ok('rien n\'est envoyé pour une date passée');
+  }
+  s.leave();
+
+  // Saisie valide, puis le jour tourne avant l'écriture (debounce de 800 ms).
+  const supa2 = makeSupabase({ people: PEOPLE });
+  const s2 = await renderSynthesisView(supa2);
+  const d2 = dateInput(s2.root);
+  const RealDate = globalThis.Date;
+  const isoOf = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  const tomorrowISO = isoOf(new RealDate(RealDate.now() + 24 * 3600 * 1000));
+  await type(d2, tomorrowISO);
+  const shifted = new RealDate(RealDate.now() + 3 * 24 * 3600 * 1000);
+  globalThis.Date = class extends RealDate {
+    constructor(...args) { if (!args.length) super(shifted.getTime()); else super(...args); }
+    static now() { return shifted.getTime(); }
+  };
+  try {
+    await sleep(950);
+  } finally {
+    globalThis.Date = RealDate;
+  }
+  const writes2 = supa2.queries.filter((q) => q.table === 'couple_review' && q.op !== 'select');
+  if (writes2.length) fail(`date devenue passée avant l'écriture : ${writes2.length} écriture(s) envoyée(s)`);
+  else ok('date devenue passée entre la saisie et l\'écriture : rien n\'est envoyé');
+  s2.leave();
+}
+
+console.log('\n== 30. Export PDF : @media print, rappel de confidentialité, pied de page ==');
+{
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  const at = css.indexOf('@media print');
+  if (at < 0) fail('feuille @media print absente de src/style.css');
+  else {
+    const block = css.slice(at);
+    const needed = ['button', '.topnav', '.install', '.update', '.msg', '.version',
+      '.no-print', '.review-fields', '.print-only'];
+    const missing = needed.filter((sel) => !block.includes(sel));
+    if (missing.length) fail(`@media print : règles manquantes ${missing.join(', ')}`);
+    else ok('@media print : navigation, boutons, bannières et champs de saisie masqués');
+    if (!block.includes('display: none !important')) fail('@media print : aucune règle display:none !important');
+    else ok('masquage réel (display: none !important) dans la feuille d\'impression');
+    if (!/\.print-only\s*\{[^}]*display:\s*block/.test(block)) fail('les éléments print-only ne réapparaissent pas à l\'impression');
+    else ok('.print-only : affiché dans le document imprimé, masqué à l\'écran');
+  }
+
+  const supabase = makeSupabase({ people: PEOPLE, status: [] });
+  const s = await renderSynthesisView(supabase);
+  const brand = byText(s.root, 'P', ui.appName);
+  const sub = byText(s.root, 'P', ui.questionnaireSubtitle);
+  const foot = byText(s.root, 'P', ui.synthesis.printFoot);
+  const who = walk(s.root).find((e) => e.tagName === 'P' && e.textContent.includes('Alex & Sam'));
+  if (!brand || !sub) fail('en-tête du document : MON BINÔME ou sous-titre absents');
+  else if (!who || !/Édité le \d{2}\/\d{2}\/\d{4}/.test(who.textContent)) fail(`en-tête : prénoms ou date du jour absents (« ${who?.textContent ?? ''} »)`);
+  else ok('document : MON BINÔME, sous-titre, les deux prénoms et la date du jour');
+  if (!foot) fail('pied « Document confidentiel, réservé à votre couple » absent');
+  else ok('pied de page confidentiel présent dans le document');
+
+  confirms.length = 0;
+  printCalls = 0;
+  const btn = byText(s.root, 'BUTTON', ui.synthesis.exportPdf);
+  if (!btn) fail('bouton « Enregistrer en PDF » absent');
+  else {
+    await click(btn);
+    if (confirms[0] !== ui.synthesis.exportConfirm) fail(`rappel de confidentialité absent avant l'impression : « ${confirms[0] ?? ''} »`);
+    else ok('rappel de confidentialité affiché avant l\'impression');
+    if (printCalls !== 1) fail(`window.print appelé ${printCalls} fois`);
+    else ok('window.print() appelé une fois (aucune bibliothèque, aucun réseau)');
+  }
+  s.leave();
 }
 
 await server.close();

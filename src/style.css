@@ -137,3 +137,30 @@ textarea:disabled { opacity: .7; }
 }
 .score-card .who { margin: 0; font-size: .9rem; font-weight: 700; color: var(--brand); }
 .score-card .val { margin: .25rem 0 0; font-size: 2rem; font-weight: 700; }
+
+/* Notre synthèse : tableau 12 lignes (défilement horizontal contenu à 320 px). */
+.table-wrap { overflow-x: auto; }
+.synth-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.synth-table th, .synth-table td {
+  padding: .5rem .4rem; border-bottom: 1px solid var(--line);
+  text-align: left; vertical-align: top; overflow-wrap: anywhere;
+}
+.synth-table thead th { color: var(--muted); font-size: .85rem; }
+.synth-table tbody th { font-weight: 600; }
+
+/* Export PDF : rien à l'écran, tout dans le document imprimé.
+   window.print() + @media print : aucune bibliothèque, aucun appel réseau. */
+.print-only { display: none; }
+@media print {
+  /* Navigation, boutons, bannières et champs de saisie hors du document. */
+  button, .topnav, .install, .update, .msg, .version, .no-print, .review-fields {
+    display: none !important;
+  }
+  .print-only { display: block; }
+  .print-brand { font-size: 1.5rem; font-weight: 700; margin: 0 0 .25rem; }
+  .print-field { margin: 0 0 .5rem; }
+  .print-foot { margin-top: 1rem; font-weight: 700; }
+  .table-wrap { overflow: visible; }
+  .card { break-inside: avoid; box-shadow: none; }
+  body { background: #fff; color: #000; }
+}

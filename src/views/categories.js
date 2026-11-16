@@ -15,7 +15,13 @@ export async function renderCategories(root, ctx, info = {}) {
     h('header', { class: 'hero' },
       h('h1', {}, displayName ? `${ui.home.title}, ${displayName}` : t.title),
       h('p', { class: 'muted' }, t.intro)),
-    list
+    list,
+    // Notre synthèse : le bilan du couple, en fin de parcours comme en cours.
+    h('p', { class: 'center' },
+      h('button', {
+        class: 'btn secondary', type: 'button',
+        onclick: () => navigate({ name: 'synthesis' })
+      }, ui.synthesis.title))
   );
 
   await load();
