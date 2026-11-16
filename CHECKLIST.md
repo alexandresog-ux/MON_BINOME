@@ -85,9 +85,9 @@ PWA jouable à distance par deux partenaires, fondée sur le questionnaire « Co
 - [x] Révélation côte à côte des réponses
 - [x] Notes d'alignement 1 à 10 (écart ≥ 3 : conversation approfondie suggérée)
 - [x] Formulaire guidé SMART (S, M, A, R, T + échéance)
-- [ ] Tableau de synthèse du couple
+- [x] Tableau de synthèse du couple
 - [ ] Bilan final (accords, sujets à approfondir, points non négociables)
-- [ ] Export PDF de la synthèse
+- [x] Export PDF de la synthèse
 - [ ] Paramètres : délier, bloquer, supprimer mes données
 - [ ] Page de confidentialité et consentement sur les données sensibles
 
