@@ -47,6 +47,7 @@ globalThis.Node = MiniNode;
 // ont besoin (visibilitychange pour la resynchronisation d'écran).
 const docListeners = {};
 globalThis.document = {
+  title: 'MON BINÔME',
   createElement: (t) => new MiniEl(t),
   createTextNode: (t) => new MiniText(t),
   visibilityState: 'visible',
@@ -1604,6 +1605,18 @@ console.log('\n== 30. Export PDF : @media print, rappel de confidentialité, pie
     else ok('masquage réel (display: none !important) dans la feuille d\'impression');
     if (!/\.print-only\s*\{[^}]*display:\s*block/.test(block)) fail('les éléments print-only ne réapparaissent pas à l\'impression');
     else ok('.print-only : affiché dans le document imprimé, masqué à l\'écran');
+    // Colonnes courtes : prénoms, statut, notes et « Objectif complet » ne se
+    // coupent jamais en fin de ligne (LEA / DER).
+    const shortCols = ['white-space: nowrap', 'word-break: normal',
+      'overflow-wrap: normal', 'hyphens: manual'];
+    const missingCols = shortCols.filter((prop) => !block.includes(prop));
+    if (missingCols.length) fail(`colonnes courtes sans protection : ${missingCols.join(', ')}`);
+    else ok('colonnes courtes : white-space: nowrap, word-break/overflow-wrap normal, hyphens manual');
+    // Aucun décor de page résiduel : pas de position fixe, pas de coupure forcée.
+    if (/position:\s*(fixed|sticky)/.test(block)) fail('élément fixed/sticky encore actif à l\'impression');
+    else ok('aucun élément fixed/sticky pendant l\'impression');
+    if (/break-(after|before|page)/.test(block)) fail('break-after/before/page résiduel dans la feuille d\'impression');
+    else ok('aucune coupure forcée résiduelle (break-after/before/page)');
   }
 
   const supabase = makeSupabase({ people: PEOPLE, status: [] });
@@ -1628,6 +1641,81 @@ console.log('\n== 30. Export PDF : @media print, rappel de confidentialité, pie
     else ok('rappel de confidentialité affiché avant l\'impression');
     if (printCalls !== 1) fail(`window.print appelé ${printCalls} fois`);
     else ok('window.print() appelé une fois (aucune bibliothèque, aucun réseau)');
+  }
+  window.dispatchEvent({ type: 'afterprint' });
+  s.leave();
+}
+
+console.log('\n== 31. Section « Nos objectifs » : S, M, A, R en entier, sans réponses ==');
+{
+  const cat1 = content.categories[0];
+  const cat2 = content.categories[1];
+  const supabase = makeSupabase({
+    people: PEOPLE, status: [],
+    goalRow: {
+      couple_id: 'couple-1', category_id: cat1.id,
+      s_text: 'Télécharger notre budget commun',
+      m_text: 'Un tableur tenu à jour chaque mois',
+      a_text: 'Ouvrir le tableur dès ce dimanche',
+      r_text: 'Relire le budget ensemble chaque dernier dimanche',
+      deadline: '2026-06-15'
+    }
+  });
+  const s = await renderSynthesisView(supabase);
+  const goalsCard = walk(s.root).find((e) => e.tagName === 'SECTION'
+    && String(e.className).split(' ').includes('goals-card'));
+  if (!goalsCard) fail('section « Nos objectifs » absente de l\'écran');
+  else {
+    if (!byText(goalsCard, 'H2', ui.synthesis.goalsTitle)) fail('titre « Nos objectifs » absent');
+    else ok('section « Nos objectifs » présente sous le tableau');
+
+    const h3s = walk(goalsCard).filter((e) => e.tagName === 'H3').map((e) => e.textContent.trim());
+    if (!h3s.includes(cat1.title)) fail(`titre de la catégorie avec objectif absent : ${JSON.stringify(h3s)}`);
+    else if (h3s.includes(cat2.title)) fail('catégorie SANS objectif présente dans Nos objectifs');
+    else ok('un bloc par catégorie avec objectif défini ou en cours (pas de bloc vide)');
+
+    // S, M, A, R en entier : libellé complet de common.smart + la valeur écrite.
+    const txt = goalsCard.textContent;
+    const smart = content.common.smart;
+    const missingLabels = ['S', 'M', 'A', 'R'].filter((k) => !txt.includes(`${k} — ${smart[k].name}`));
+    if (missingLabels.length) fail(`libellés SMART absents : ${missingLabels.join(', ')}`);
+    else ok('S, M, A, R affichés avec leurs libellés complets (Spécifique, Mesurable…)');
+    const values = ['Télécharger notre budget commun', 'Un tableur tenu à jour chaque mois',
+      'Ouvrir le tableur dès ce dimanche', 'Relire le budget ensemble chaque dernier dimanche'];
+    const missingValues = values.filter((v) => !txt.includes(v));
+    if (missingValues.length) fail(`valeurs SMART incomplètes : ${JSON.stringify(missingValues)}`);
+    else ok('les quatre textes S, M, A, R sont affichés en entier');
+    if (!txt.includes('Échéance : 15/06/2026')) fail('échéance de l\'objectif absente de la section');
+    else ok('échéance affichée (15/06/2026)');
+  }
+
+  if (supabase.queries.some((q) => q.table === 'answers')) fail('la section objectifs a lu la table answers');
+  else ok('aucune lecture de la table answers pour les objectifs');
+  s.leave();
+}
+
+console.log('\n== 32. Titre du document à l\'impression, restauré après afterprint ==');
+{
+  const supabase = makeSupabase({ people: PEOPLE, status: [] });
+  const s = await renderSynthesisView(supabase);
+  document.title = ui.appName;
+  const prev = document.title;
+  confirms.length = 0;
+  printCalls = 0;
+  const btn = byText(s.root, 'BUTTON', ui.synthesis.exportPdf);
+  if (!btn) fail('bouton « Enregistrer en PDF » absent');
+  else {
+    const d = new Date();
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const expected = `${ui.appName} - ${ui.synthesis.title} - ${iso}`;
+    await click(btn);
+    if (document.title !== expected) fail(`titre à l'impression : « ${document.title} » au lieu de « ${expected} »`);
+    else ok('titre fixé à MON BINÔME - Notre synthèse - AAAA-MM-JJ pendant l\'impression');
+
+    // Impression annulée ou terminée : afterprint restaure le titre.
+    window.dispatchEvent({ type: 'afterprint' });
+    if (document.title !== prev) fail(`titre non restauré après afterprint : « ${document.title} » au lieu de « ${prev} »`);
+    else ok('titre restauré après afterprint (impression annulée comprise)');
   }
   s.leave();
 }

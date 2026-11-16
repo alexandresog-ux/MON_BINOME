@@ -1,7 +1,7 @@
 import { h } from '../dom.js';
 import { ui } from '../data/ui.fr.js';
 import content from '../data/questions.fr.json';
-import { isGoalComplete } from '../goal.js';
+import { isGoalComplete, isGoalEmpty, GOAL_TEXT_KEYS, GOAL_COLS } from '../goal.js';
 
 // Bilan final du couple (table couple_review) : 4 textes (3000 car. max) puis
 // la date du prochain point. Même écriture à deux que l'écran SMART :
@@ -63,6 +63,7 @@ export async function renderSynthesis(root, ctx) {
   const statusMsg = h('p', { class: 'msg', role: 'status' });
   const metaEl = h('p', { class: 'muted hint no-print' });
   const tableCard = h('section', { class: 'card' });
+  const goalsCard = h('section', { class: 'card goals-card' });
   const formCard = h('section', { class: 'card' });
   const printBox = h('div', { class: 'print-only' });
   const heroWho = h('p', { class: 'muted' });
@@ -180,6 +181,32 @@ export async function renderSynthesis(root, ctx) {
         h('table', { class: 'synth-table' },
           h('thead', {}, head),
           h('tbody', {}, rows))));
+  }
+
+  // --- Section « Nos objectifs » ---------------------------------------
+  // Sous le tableau, à l'écran ET dans l'impression : chaque catégorie dont
+  // l'objectif est défini ou en cours, avec S, M, A, R en entier et l'échéance.
+  // Jamais de questionnaire ici : uniquement smart_goals (lu par couple).
+  function drawGoals(goalRows) {
+    const items = [];
+    for (const cat of content.categories) {
+      const goal = goalRows.find((r) => r.category_id === cat.id) ?? null;
+      if (goal && !isGoalEmpty(goal)) items.push({ cat, goal });
+    }
+    if (!items.length) { goalsCard.replaceChildren(); return; }
+    goalsCard.replaceChildren(
+      h('h2', {}, t.goalsTitle),
+      ...items.map(({ cat, goal }) => h('div', { class: 'goal-block' },
+        h('h3', {}, cat.title),
+        ...GOAL_TEXT_KEYS.map((key) => {
+          const letter = content.common.smart[key.toUpperCase()];
+          return h('p', { class: 'goal-line' },
+            h('strong', {}, `${key.toUpperCase()} — ${letter.name} : `),
+            String(goal[GOAL_COLS[key]] ?? ''));
+        }),
+        goal.deadline
+          ? h('p', { class: 'goal-line' }, t.deadline(dateFR(goal.deadline)))
+          : null)));
   }
 
   // --- Formulaire du bilan --------------------------------------------
@@ -412,9 +439,19 @@ export async function renderSynthesis(root, ctx) {
   // --- Export PDF ------------------------------------------------------
   // window.print() seul : aucune bibliothèque, aucun appel réseau. La feuille
   // @media print (style.css) masque navigation, boutons et bannières.
+  // Le titre du document devient celui du PDF ; afterprint le restaure,
+  // même quand l'impression est annulée.
+  let titleBeforePrint = null;
+  function restoreTitle() {
+    if (titleBeforePrint === null) return;
+    document.title = titleBeforePrint;
+    titleBeforePrint = null;
+  }
   function doExport() {
     if (!window.confirm(t.exportConfirm)) return;
     syncPrint();
+    titleBeforePrint = document.title;
+    document.title = `${ui.appName} - ${t.title} - ${todayISO()}`;
     window.print();
   }
 
@@ -479,7 +516,7 @@ export async function renderSynthesis(root, ctx) {
     mountShell();
     if (!drawn) {
       drawn = true;
-      body.replaceChildren(tableCard, formCard,
+      body.replaceChildren(tableCard, goalsCard, formCard,
         h('p', { class: 'center no-print' },
           h('button', { class: 'btn', type: 'button', onclick: doExport }, t.exportPdf)),
         h('section', { class: 'card' }, h('p', {}, content.common.final_advice)),
@@ -487,6 +524,7 @@ export async function renderSynthesis(root, ctx) {
     }
     heroWho.textContent = `${mineName} & ${partnerName} · ${t.editedOn(todayFR())}`;
     drawTable(statusRes.data ?? [], alignRes.data ?? [], goalRes.data ?? []);
+    drawGoals(goalRes.data ?? []);
     buildForm();
     applyRow(reviewRes.data ?? null);
     startChannel();
@@ -497,6 +535,13 @@ export async function renderSynthesis(root, ctx) {
   const onVisible = () => { if (document.visibilityState === 'visible') load(); };
   document.addEventListener('visibilitychange', onVisible);
   cleanups.push(() => document.removeEventListener('visibilitychange', onVisible));
+  // Impression terminée (ou annulée) : le titre de l'onglet redevient normal.
+  const onAfterPrint = () => restoreTitle();
+  window.addEventListener('afterprint', onAfterPrint);
+  cleanups.push(() => {
+    window.removeEventListener('afterprint', onAfterPrint);
+    restoreTitle();
+  });
   // Filet de sécurité : Realtime peut manquer un événement.
   ticker = setInterval(() => { if (!done) load(); }, 20000);
 

@@ -148,19 +148,70 @@ textarea:disabled { opacity: .7; }
 .synth-table thead th { color: var(--muted); font-size: .85rem; }
 .synth-table tbody th { font-weight: 600; }
 
+/* « Nos objectifs » : un bloc par catégorie, sans carte vide si aucun objectif. */
+.goals-card:empty { display: none; }
+.goal-block { margin: 0 0 .75rem; }
+.goal-block h3 { margin: 0 0 .25rem; font-size: 1.05rem; }
+.goal-line { margin: 0 0 .25rem; overflow-wrap: anywhere; }
+
 /* Export PDF : rien à l'écran, tout dans le document imprimé.
    window.print() + @media print : aucune bibliothèque, aucun appel réseau. */
 .print-only { display: none; }
+/* Document : A4, marge 15 mm (le tableau et les blocs utilisent toute la largeur). */
+@page { size: A4; margin: 15mm; }
 @media print {
   /* Navigation, boutons, bannières et champs de saisie hors du document. */
   button, .topnav, .install, .update, .msg, .version, .no-print, .review-fields {
     display: none !important;
   }
   .print-only { display: block; }
+
+  /* Page sans hauteur figée : aucune dernière page blanche. */
+  html, body, #app, .wrap {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0;
+    padding: 0;
+  }
+  .wrap { max-width: none !important; width: 100%; }
+  /* Plus rien de fixe ni collant pendant l'impression. */
+  .install, .update { position: static; }
+
+  body { background: #fff; color: #000; font-size: 10.5pt; line-height: 1.45; }
+  h1 { font-size: 16pt; }
+  h2 { font-size: 13pt; }
+  h3 { font-size: 11.5pt; }
+
+  /* Cartes sans décor : ni coins arrondis, ni ombres, ni bordures. */
+  .card {
+    border: 0; border-radius: 0; box-shadow: none;
+    background: transparent; padding: 0;
+  }
+
+  /* Le tableau peut être coupé entre deux pages (déjà sa 1re page complète)
+     MAIS jamais une ligne isolée ; l'en-tête avec les prénoms se répète sur
+     chaque page imprimée. */
+  .table-wrap { overflow: visible; }
+  .synth-table { width: 100%; font-size: 10pt; break-inside: auto; }
+  thead { display: table-header-group; }
+  .synth-table tr { break-inside: avoid; }
+
+  /* Colonnes courtes sans coupure de mot : prénoms, statut, notes, complet. */
+  .synth-table thead th,
+  .synth-table td:nth-child(1),
+  .synth-table td:nth-child(2),
+  .synth-table td:nth-child(3),
+  .synth-table td:nth-child(5) {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: manual;
+  }
+
+  /* Blocs courts jamais coupés en deux : titre, objectifs, bilan, pied. */
+  h1, h2, h3, .hero, .goal-block, .print-field, .print-foot { break-inside: avoid; }
+
   .print-brand { font-size: 1.5rem; font-weight: 700; margin: 0 0 .25rem; }
   .print-field { margin: 0 0 .5rem; }
   .print-foot { margin-top: 1rem; font-weight: 700; }
-  .table-wrap { overflow: visible; }
-  .card { break-inside: avoid; box-shadow: none; }
-  body { background: #fff; color: #000; }
 }
