@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 320 48" width="320" height="48" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="lineL" x1="0" x2="1"><stop offset="0" stop-color="#c2547a" stop-opacity="0"/><stop offset="1" stop-color="#c2547a" stop-opacity=".7"/></linearGradient>
+    <linearGradient id="lineR" x1="0" x2="1"><stop offset="0" stop-color="#c2547a" stop-opacity=".7"/><stop offset="1" stop-color="#c2547a" stop-opacity="0"/></linearGradient>
+    <linearGradient id="g1" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#b8456d"/><stop offset="1" stop-color="#f9c4d4"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#6e2347"/><stop offset="1" stop-color="#e98aa7"/></linearGradient>
+    <linearGradient id="gl" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3f6b52"/><stop offset="1" stop-color="#7fb08e"/></linearGradient>
+    <path id="pt" d="M0,0 C-34,-14 -50,-58 -26,-86 C-14,-100 14,-100 26,-86 C50,-58 34,-14 0,0 Z" stroke="#5c1f3a" stroke-opacity=".3" stroke-width="3"/>
+    <path id="lf" d="M0,0 C18,-28 56,-38 92,-22 C74,8 32,18 0,0 Z" fill="url(#gl)"/>
+  </defs>
+  <rect x="20" y="23.4" width="118" height="1.4" rx=".7" fill="url(#lineL)"/>
+  <rect x="182" y="23.4" width="118" height="1.4" rx=".7" fill="url(#lineR)"/>
+  <g transform="translate(160 25)">
+    <use xlink:href="#lf" transform="rotate(200) translate(10 0) scale(.16)"/>
+    <use xlink:href="#lf" transform="rotate(-20) translate(10 0) scale(.16)"/>
+    <g fill="url(#g1)" transform="scale(.17)">
+      <use xlink:href="#pt" transform="rotate(0)"/><use xlink:href="#pt" transform="rotate(72)"/><use xlink:href="#pt" transform="rotate(144)"/>
+      <use xlink:href="#pt" transform="rotate(216)"/><use xlink:href="#pt" transform="rotate(288)"/>
+    </g>
+    <g fill="url(#g2)" transform="scale(.17)">
+      <use xlink:href="#pt" transform="rotate(36) scale(.6)"/><use xlink:href="#pt" transform="rotate(144) scale(.6)"/><use xlink:href="#pt" transform="rotate(252) scale(.6)"/>
+    </g>
+  </g>
+  <circle cx="132" cy="24" r="2" fill="#e9b44c"/><circle cx="188" cy="24" r="2" fill="#e9b44c"/>
+</svg>

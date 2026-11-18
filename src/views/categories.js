@@ -106,7 +106,11 @@ export async function renderCategories(root, ctx, info = {}) {
         : (!iValidated
             ? { name: 'questions', categoryId: cat.id }
             : (partnerValidated ? { name: 'reveal', categoryId: cat.id } : { name: 'wait', categoryId: cat.id }));
-      const props = { class: target ? 'card category clickable' : 'card category' };
+      const done = isRevealed && isGoalComplete(goalByCat.get(cat.id));
+      const classes = ['card', 'category'];
+      if (target) classes.push('clickable');
+      if (done) classes.push('is-done');
+      const props = { class: classes.join(' ') };
       if (target) {
         props.onclick = () => navigate(target);
         props['aria-label'] = t.openLabel(cat.title);

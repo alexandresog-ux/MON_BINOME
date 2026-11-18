@@ -520,7 +520,10 @@ export async function renderSynthesis(root, ctx) {
     mountShell();
     if (!drawn) {
       drawn = true;
-      body.replaceChildren(tableCard, goalsCard, formCard,
+      body.replaceChildren(
+        tableCard, h('hr', { class: 'rose-divider' }),
+        goalsCard, h('hr', { class: 'rose-divider' }),
+        formCard,
         h('p', { class: 'center no-print' },
           h('button', { class: 'btn', type: 'button', onclick: doExport }, t.exportPdf)),
         h('section', { class: 'card' }, h('p', {}, content.common.final_advice)),

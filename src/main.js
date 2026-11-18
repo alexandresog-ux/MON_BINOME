@@ -1,4 +1,5 @@
 import './style.css';
+import './theme.css';
 import { registerSW } from 'virtual:pwa-register';
 import { supabase, supabaseReady } from './supabase.js';
 import { h } from './dom.js';
@@ -19,6 +20,14 @@ import { updateBanner } from './views/updateBanner.js';
 
 const root = document.getElementById('app');
 
+// Écran courant, posé sur .wrap (data-screen) : theme.css cible
+// .wrap[data-screen="…"] pour ajuster le décor par écran.
+const SCREENS = {
+  privacy: 'privacy', questions: 'questions', wait: 'waiting', reveal: 'reveal',
+  alignment: 'alignment', smart: 'smart', synthesis: 'synthesis',
+  settings: 'settings', home: 'home'
+};
+
 let currentSession = null;
 let route = { name: 'home' };
 // Hooks de sortie d'écran (désabonnement Realtime, listeners…).
@@ -32,7 +41,7 @@ async function render() {
     try { hook(); } catch (err) { console.error(err); }
   }
   root.replaceChildren();
-  const main = h('main', { class: 'wrap' });
+  const main = h('main', { class: 'wrap', 'data-screen': SCREENS[route.name] ?? 'home' });
   root.append(main);
   // La politique de confidentialité est lisible SANS session : elle est routée
   // avant la vérification de connexion (et avant le reset de route).
@@ -42,6 +51,7 @@ async function render() {
   }
   if (!currentSession) {
     route = { name: 'home' };
+    main.setAttribute('data-screen', 'login');
     renderLogin(main, { supabase, navigate });
     return;
   }

@@ -1,7 +1,7 @@
 // Banc d'essai : vérifie que chaque catégorie expose bien ses 8 questions à l'écran.
 // Mini-DOM + stub Supabase, aucun réseau, aucune base réelle.
 // Usage : node scripts/check-questions.mjs
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { createServer } from 'vite';
 
 // --- Mini-DOM -------------------------------------------------------
@@ -2207,6 +2207,129 @@ console.log('\n== 40. Accueil : « Ton ou ta partenaire a délié le couple », 
     if (navigateLog.at(-1)?.name !== 'settings') fail('bouton Paramètres non routé');
     else ok('bouton Paramètres présent sur l\'accueil et routé');
   }
+}
+
+console.log('\n== 41. Thème rose : imports, data-screen, décor, séparateurs, is-done ==');
+{
+  const styleSrc = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  const themeSrc = readFileSync(new URL('../src/theme.css', import.meta.url), 'utf8');
+  const mainSrc = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const homeSrc = readFileSync(new URL('../src/views/home.js', import.meta.url), 'utf8');
+
+  // (a) theme.css importé APRÈS style.css : le thème gagne sur la base.
+  const iStyle = mainSrc.indexOf("import './style.css';");
+  const iTheme = mainSrc.indexOf("import './theme.css';");
+  if (iStyle < 0) fail('import de style.css absent de main.js');
+  else if (iTheme < 0) fail('import de theme.css absent de main.js');
+  else if (iTheme < iStyle) fail('theme.css doit être importé APRÈS style.css');
+  else ok('theme.css importé après style.css (le thème prime sur la base)');
+
+  // (b) Un data-screen par écran : SCREENS, login sans session, accueil dynamique.
+  const screensBlock = /const SCREENS = \{([\s\S]*?)\};/.exec(mainSrc);
+  const pairs = screensBlock ? [...screensBlock[1].matchAll(/(\w+)\s*:\s*'([\w-]+)'/g)] : [];
+  const expectedRoutes = ['alignment', 'home', 'privacy', 'questions', 'reveal', 'settings', 'smart', 'synthesis', 'wait'];
+  const gotRoutes = pairs.map((p) => p[1]).sort();
+  if (!screensBlock) fail('constante SCREENS absente de main.js');
+  else if (JSON.stringify(gotRoutes) !== JSON.stringify(expectedRoutes)) {
+    fail(`SCREENS : routes attendues ${expectedRoutes.join(', ')}, obtenues ${gotRoutes.join(', ')}`);
+  } else ok('SCREENS : les 9 routes du routeur ont leur data-screen');
+  if (!mainSrc.includes("main.setAttribute('data-screen', 'login')")) {
+    fail('écran de connexion sans session : data-screen login absent');
+  } else ok('sans session : data-screen login posé sur .wrap');
+  if (!homeSrc.includes("root.setAttribute('data-screen', coupleId ? 'categories' : 'home')")) {
+    fail('accueil : data-screen dynamique (categories/home) absent');
+  } else ok('accueil : data-screen categories selon le couple, home sinon');
+
+  // Rendu réel de l'accueil dans les deux états.
+  const ctxHome = (supabase) => ({
+    supabase, session: { user: { id: 'user-1' } },
+    navigate: () => {}, onLeave: () => {}, state: { seenCouple: false }
+  });
+  const rootCouple = new MiniEl('div');
+  await renderHome(rootCouple, ctxHome(makeSupabase({ people: PEOPLE, status: [], couple: 'couple-1' })), null);
+  const rootSolo = new MiniEl('div');
+  await renderHome(rootSolo, ctxHome(makeSupabase({ people: PEOPLE, status: [], couple: null })), null);
+  if (rootCouple.getAttribute('data-screen') !== 'categories') {
+    fail(`couple : data-screen ${rootCouple.getAttribute('data-screen')} au lieu de categories`);
+  } else if (rootSolo.getAttribute('data-screen') !== 'home') {
+    fail(`sans couple : data-screen ${rootSolo.getAttribute('data-screen')} au lieu de home`);
+  } else ok('rendu : categories avec couple, home sans couple');
+
+  // Tous les data-screen de theme.css existent dans l'app.
+  const usedScreens = new Set([...themeSrc.matchAll(/data-screen="([\w-]+)"/g)].map((m) => m[1]));
+  const knownScreens = new Set([...pairs.map((p) => p[2]), 'login', 'categories']);
+  const unknownScreens = [...usedScreens].filter((s) => !knownScreens.has(s));
+  if (unknownScreens.length) fail(`theme.css cible un écran inexistant : ${unknownScreens.join(', ')}`);
+  else ok(`theme.css : ${usedScreens.size} data-screen tous connus de l'app`);
+
+  // (c) Les SVG du décor existent bien dans public/decor.
+  const decorRefs = [...new Set([...themeSrc.matchAll(/url\("\/decor\/([\w-]+\.svg)"\)/g)].map((m) => m[1]))];
+  const missingDecor = decorRefs.filter((f) => !existsSync(new URL(`../public/decor/${f}`, import.meta.url)));
+  if (!decorRefs.length) fail('aucune référence url("/decor/…") dans theme.css');
+  else if (missingDecor.length) fail(`décor absent de public/decor : ${missingDecor.join(', ')}`);
+  else ok(`décor présent : ${decorRefs.join(', ')}`);
+
+  // (d) À l'impression, tout le décor disparaît.
+  const themePrintAt = themeSrc.indexOf('@media print');
+  if (themePrintAt < 0) fail('@media print absent de theme.css');
+  else {
+    const printBlock = themeSrc.slice(themePrintAt);
+    const hidden = ['.wrap::before', '.hero::before', '.hero::after', '.card::before',
+      '.card::after', '.btn::after', '.is-done::after', '.rose-divider'];
+    const notHidden = hidden.filter((sel) => !printBlock.includes(sel));
+    if (!printBlock.includes('display: none !important')) {
+      fail('theme.css : display:none !important absent du bloc print');
+    } else if (notHidden.length) fail(`print : décor non masqué ${notHidden.join(', ')}`);
+    else ok('impression : décor, pastilles et séparateurs masqués (!important)');
+    if (!/\.hero\s*\{[^}]*padding-top:\s*0\s*!important/.test(printBlock)) {
+      fail('print : neutralisation du padding du hero absente');
+    } else ok('impression : padding du hero remis à 0');
+  }
+
+  // (e) Séparateurs à fleur sur la synthèse.
+  const supaSynth = makeSupabase({ people: PEOPLE, status: [] });
+  const sSynth = await renderSynthesisView(supaSynth);
+  const dividers = walk(sSynth.root).filter((e) => e.tagName === 'HR'
+    && String(e.className).split(' ').includes('rose-divider'));
+  if (dividers.length < 1) fail('aucun <hr class="rose-divider"> sur la synthèse');
+  else ok(`${dividers.length} séparateur(s) rose-divider sur la synthèse`);
+  sSynth.leave();
+
+  // (f) Objectif complet : la carte de la catégorie porte .is-done.
+  const cat1 = content.categories[0];
+  const supaCat = makeSupabase({
+    people: PEOPLE, status: VALIDATED_BOTH,
+    goalRow: {
+      couple_id: 'couple-1', category_id: cat1.id,
+      s_text: 'Télécharger notre budget commun',
+      m_text: 'Un tableur tenu à jour chaque mois',
+      a_text: 'Ouvrir le tableur dès ce dimanche',
+      r_text: 'Relire le budget ensemble chaque dernier dimanche',
+      deadline: '2026-06-15'
+    }
+  });
+  const rootCat = new MiniEl('div');
+  await renderCategories(rootCat, {
+    supabase: supaCat, session: { user: { id: 'user-1' } }, navigate: () => {}
+  }, { coupleId: 'couple-1', displayName: 'Alex' });
+  const doneCards = walk(rootCat).filter((e) =>
+    String(e.className ?? '').split(' ').includes('is-done'));
+  if (doneCards.length !== 1) fail(`objectif complet : ${doneCards.length} carte(s) is-done au lieu de 1`);
+  else if (!String(doneCards[0].className).split(' ').includes('category')) {
+    fail('la carte is-done n\'est pas une carte de catégorie');
+  } else ok('objectif complet : exactement une carte de catégorie en is-done');
+
+  // (g) Les couleurs vivent dans theme.css, le focus est lisible.
+  const colorDefs = [...styleSrc.matchAll(/--[a-z-]+:\s*#/g)];
+  if (colorDefs.length) fail(`style.css définit encore des couleurs : ${colorDefs.map((m) => m[0]).join(', ')}`);
+  else ok('style.css : aucune couleur (mise en page seule)');
+  if (!/--danger:\s*#/.test(themeSrc)) fail('--danger absent de theme.css (nécessaire à .btn.danger)');
+  else ok('--danger défini dans theme.css');
+  if (!/color-scheme:\s*light dark/.test(themeSrc)) fail('color-scheme: light dark absent de theme.css');
+  else ok('color-scheme: light dark (champs natifs en thème clair/sombre)');
+  if (/outline:\s*3px solid var\(--gold\)/.test(themeSrc)) fail('focus encore en or (contraste sous 3:1)');
+  else if (!/outline:\s*3px solid var\(--focus\)/.test(themeSrc)) fail('règle de focus var(--focus) absente de theme.css');
+  else ok('focus : contour var(--focus) rose (contraste AA)');
 }
 
 await server.close();

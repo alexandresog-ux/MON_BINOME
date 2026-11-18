@@ -1,15 +1,9 @@
-:root {
-  --bg: #fff4e6; --card: #ffffff; --text: #2b1d24; --muted: #6f5b64;
-  --brand: #7a2e4d; --brand-ink: #ffffff; --accent: #f0b45a; --line: #ead9c8; --danger: #b3261e;
-  color-scheme: light dark;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #1d1318; --card: #2a1c23; --text: #f6ebe4; --muted: #c4aeb6; --brand: #d98aa9; --brand-ink: #2b1020; --line: #43303a; }
-}
+/* Les couleurs vivent dans theme.css (source de vérité) : ici, uniquement la
+   mise en page. theme.css est importé APRÈS style.css dans src/main.js. */
 * { box-sizing: border-box; }
 html { height: 100%; }
 body {
-  margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+  margin: 0; min-height: 100%;
   font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -17,30 +11,26 @@ body {
 .hero { text-align: center; margin: 1.5rem 0; }
 h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 .5rem; }
 h2 { font-size: 1.25rem; margin: 0 0 1rem; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; margin-bottom: 1rem; }
-.muted { color: var(--muted); }
+.card { padding: 1.25rem; margin-bottom: 1rem; }
 .center { text-align: center; }
 .field { display: block; margin-bottom: 1rem; }
 .field span { display: block; font-size: .9rem; color: var(--muted); margin-bottom: .25rem; }
 input {
-  width: 100%; min-height: 3rem; padding: .6rem .8rem; font: inherit; color: inherit;
-  background: transparent; border: 1px solid var(--line); border-radius: .75rem;
+  width: 100%; min-height: 3rem; padding: .6rem .8rem; font: inherit;
 }
-input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .btn {
   min-height: 3rem; padding: .6rem 1.25rem; font: inherit; font-weight: 600; cursor: pointer;
-  color: var(--brand-ink); background: var(--brand); border: 0; border-radius: .75rem; width: 100%;
+  width: 100%;
 }
-.btn.secondary { background: transparent; color: var(--brand); border: 2px solid var(--brand); }
 .btn.small { width: auto; min-height: 3rem; padding: .5rem 1.1rem; }
 .btn:disabled { opacity: .6; cursor: progress; }
-.link { background: none; border: 0; padding: .75rem 0; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
+.link { background: none; border: 0; padding: .75rem 0; font: inherit; text-decoration: underline; cursor: pointer; }
 .row { display: flex; gap: .75rem; }
 /* Les boutons se partagent la ligne et peuvent réduire sous leur largeur de
    contenu : aucun débordement horizontal, même à 320 px (le texte se coupe). */
 .row > .btn { flex: 1 1 0; min-width: 0; }
 .code { font: 700 1.6rem/1.2 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .06em; text-align: center; margin: .75rem 0 1rem; word-break: break-all; }
-.msg { min-height: 1.5rem; margin: .75rem 0 0; color: var(--muted); }
+.msg { min-height: 1.5rem; margin: .75rem 0 0; }
 /* Message vide = aucune place réservée : pas d'espace mort sous la rangée de
    notes ni en bas des formulaires (la place revient au message affiché). */
 .msg:empty { min-height: 0; margin-top: 0; }
@@ -76,10 +66,8 @@ body:has(.install:not([hidden])) .update { bottom: calc(5.5rem + env(safe-area-i
    (deux boutons inline sans espace ne se coupent jamais au milieu). */
 .topnav { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .75rem; margin-bottom: .5rem; }
 textarea {
-  width: 100%; min-height: 8rem; padding: .75rem; font: inherit; color: inherit;
-  background: var(--card); border: 1px solid var(--line); border-radius: .75rem; resize: vertical;
+  width: 100%; min-height: 8rem; padding: .75rem; font: inherit; resize: vertical;
 }
-textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 textarea:disabled { opacity: .7; }
 .badge {
   display: inline-block; padding: .15rem .6rem; border-radius: 999rem;

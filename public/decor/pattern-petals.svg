@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" aria-hidden="true" focusable="false">
+  <defs>
+    <path id="p" d="M0,0 C-10,-5 -15,-17 -8,-26 C-4,-30 4,-30 8,-26 C15,-17 10,-5 0,0 Z"/>
+  </defs>
+  <g fill="#c2547a" fill-opacity=".075">
+    <use xlink:href="#p" xmlns:xlink="http://www.w3.org/1999/xlink" transform="translate(34 44) rotate(-28)"/>
+    <use xlink:href="#p" xmlns:xlink="http://www.w3.org/1999/xlink" transform="translate(128 30) rotate(34) scale(.8)"/>
+    <use xlink:href="#p" xmlns:xlink="http://www.w3.org/1999/xlink" transform="translate(92 96) rotate(150) scale(1.1)"/>
+    <use xlink:href="#p" xmlns:xlink="http://www.w3.org/1999/xlink" transform="translate(30 140) rotate(96) scale(.9)"/>
+    <use xlink:href="#p" xmlns:xlink="http://www.w3.org/1999/xlink" transform="translate(150 150) rotate(-70) scale(1.05)"/>
+  </g>
+  <g fill="#6a9a7a" fill-opacity=".07">
+    <circle cx="70" cy="22" r="2.2"/><circle cx="158" cy="92" r="2.2"/><circle cx="14" cy="96" r="2"/><circle cx="104" cy="160" r="2"/>
+  </g>
+</svg>

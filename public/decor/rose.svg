@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 300" width="300" height="300" role="img" aria-hidden="true" focusable="false">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#eba3bb" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#eba3bb" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gOuter" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#b8456d"/><stop offset=".55" stop-color="#e77f9f"/><stop offset="1" stop-color="#f9c4d4"/>
+    </linearGradient>
+    <linearGradient id="gMid" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#9a3260"/><stop offset=".6" stop-color="#d9658b"/><stop offset="1" stop-color="#f3a9c0"/>
+    </linearGradient>
+    <linearGradient id="gInner" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#6e2347"/><stop offset=".6" stop-color="#b8456d"/><stop offset="1" stop-color="#e98aa7"/>
+    </linearGradient>
+    <linearGradient id="gLeaf" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#3f6b52"/><stop offset="1" stop-color="#7fb08e"/>
+    </linearGradient>
+    <g id="petal">
+      <path d="M0,0 C-34,-14 -50,-58 -26,-86 C-14,-100 14,-100 26,-86 C50,-58 34,-14 0,0 Z" stroke="#5c1f3a" stroke-opacity=".28" stroke-width="1.2"/>
+      <path d="M-20,-8 C-8,-24 8,-24 20,-8 C8,2 -8,2 -20,-8 Z" fill="#4a1730" fill-opacity=".16"/>
+      <path d="M-17,-83 C-8,-93 8,-93 17,-83 C8,-76 -8,-76 -17,-83 Z" fill="#ffffff" fill-opacity=".42"/>
+    </g>
+    <g id="leaf">
+      <path d="M0,0 C18,-28 56,-38 92,-22 C74,8 32,18 0,0 Z" fill="url(#gLeaf)" stroke="#2f5340" stroke-opacity=".35" stroke-width="1"/>
+      <path d="M6,-2 C32,-14 58,-19 82,-19" fill="none" stroke="#ffffff" stroke-opacity=".4" stroke-width="1.4" stroke-linecap="round"/>
+    </g>
+  </defs>
+  <circle cx="150" cy="150" r="146" fill="url(#glow)"/>
+  <g transform="translate(150 150)">
+    <use xlink:href="#leaf" transform="rotate(25) translate(58 0) scale(.9)"/>
+    <use xlink:href="#leaf" transform="rotate(150) translate(58 0) scale(.9)"/>
+    <use xlink:href="#leaf" transform="rotate(262) translate(58 0) scale(.85)"/>
+    <g fill="url(#gOuter)">
+      <use xlink:href="#petal" transform="rotate(0)"/><use xlink:href="#petal" transform="rotate(60)"/>
+      <use xlink:href="#petal" transform="rotate(120)"/><use xlink:href="#petal" transform="rotate(180)"/>
+      <use xlink:href="#petal" transform="rotate(240)"/><use xlink:href="#petal" transform="rotate(300)"/>
+    </g>
+    <g fill="url(#gMid)">
+      <use xlink:href="#petal" transform="rotate(30) scale(.8)"/><use xlink:href="#petal" transform="rotate(90) scale(.8)"/>
+      <use xlink:href="#petal" transform="rotate(150) scale(.8)"/><use xlink:href="#petal" transform="rotate(210) scale(.8)"/>
+      <use xlink:href="#petal" transform="rotate(270) scale(.8)"/><use xlink:href="#petal" transform="rotate(330) scale(.8)"/>
+    </g>
+    <g fill="url(#gInner)">
+      <use xlink:href="#petal" transform="rotate(18) scale(.58)"/><use xlink:href="#petal" transform="rotate(90) scale(.58)"/>
+      <use xlink:href="#petal" transform="rotate(162) scale(.58)"/><use xlink:href="#petal" transform="rotate(234) scale(.58)"/>
+      <use xlink:href="#petal" transform="rotate(306) scale(.58)"/>
+    </g>
+    <g fill="url(#gInner)">
+      <use xlink:href="#petal" transform="rotate(45) scale(.36)"/><use xlink:href="#petal" transform="rotate(135) scale(.36)"/>
+      <use xlink:href="#petal" transform="rotate(225) scale(.36)"/><use xlink:href="#petal" transform="rotate(315) scale(.36)"/>
+    </g>
+    <path d="M0,0 m-5,1 a5,5 0 1,1 7,4 a9,9 0 0,1 -13,-8 a13,13 0 0,1 19,-3" fill="none" stroke="#4a1730" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+</svg>

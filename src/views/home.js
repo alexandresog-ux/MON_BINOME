@@ -20,6 +20,8 @@ export async function renderHome(root, ctx, notice) {
   ]);
   const displayName = profile.data?.display_name ?? '';
   const coupleId = member.data?.couple_id ?? null;
+  // Écran courant pour le décor (theme.css) : appairage ou catégories.
+  root.setAttribute('data-screen', coupleId ? 'categories' : 'home');
 
   // « Ton ou ta partenaire a délié le couple » : affiché seulement si le
   // couple a existé pendant cette session puis a disparu (état porté par le
