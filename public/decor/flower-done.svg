@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true" focusable="false">
+  <defs>
+    <path id="p5" d="M0,-2 C6,-4 10,-10 8,-15 C6,-20 -6,-20 -8,-15 C-10,-10 -6,-4 0,-2 Z"/>
+  </defs>
+  <g transform="translate(32,30) scale(1.45)">
+    <use xlink:href="#p5" href="#p5" fill="#e28265"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(72)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(144)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(216)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(288)"/>
+    <circle r="8.5" fill="#6e2347"/>
+    <circle r="4.2" fill="#e9b44c"/>
+    <circle cx="-1.4" cy="-1.4" r="1.5" fill="#ffffff" opacity=".85"/>
+  </g>
+</svg>

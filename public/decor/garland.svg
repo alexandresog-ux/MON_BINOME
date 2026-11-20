@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 360 60" width="360" height="60" aria-hidden="true" focusable="false">
+  <defs>
+    <path id="p5" d="M0,-2 C6,-4 10,-10 8,-15 C6,-20 -6,-20 -8,-15 C-10,-10 -6,-4 0,-2 Z"/>
+    <path id="lf" d="M0,0 C4,-7 12,-9 17,-4 C12,3 4,5 0,0 Z"/>
+  </defs>
+  <path d="M6,46 C70,34 130,52 180,44 C230,36 300,50 354,40" fill="none" stroke="#4f7a5f" stroke-width="2.5" stroke-linecap="round" opacity=".85"/>
+  <path d="M46,38 L46,30 M118,42 L118,34 M180,38 L180,30 M246,38 L246,30 M312,40 L312,33" fill="none" stroke="#4f7a5f" stroke-width="2" stroke-linecap="round" opacity=".75"/>
+  <use xlink:href="#lf" href="#lf" fill="#6a9a7a" transform="translate(84,44) rotate(-20)"/>
+  <use xlink:href="#lf" href="#lf" fill="#4f7a5f" transform="translate(148,50) rotate(15) scale(.9)"/>
+  <use xlink:href="#lf" href="#lf" fill="#6a9a7a" transform="translate(214,40) rotate(-25) scale(.95)"/>
+  <use xlink:href="#lf" href="#lf" fill="#4f7a5f" transform="translate(278,48) rotate(12)"/>
+  <use xlink:href="#lf" href="#lf" fill="#6a9a7a" transform="translate(334,42) rotate(-15) scale(.85)"/>
+  <use xlink:href="#lf" href="#lf" fill="#6a9a7a" transform="translate(24,48) rotate(20) scale(.8)"/>
+  <g transform="translate(46,26)">
+    <use xlink:href="#p5" href="#p5" fill="#6e2347"/>
+    <use xlink:href="#p5" href="#p5" fill="#6e2347" transform="rotate(72)"/>
+    <use xlink:href="#p5" href="#p5" fill="#6e2347" transform="rotate(144)"/>
+    <use xlink:href="#p5" href="#p5" fill="#6e2347" transform="rotate(216)"/>
+    <use xlink:href="#p5" href="#p5" fill="#6e2347" transform="rotate(288)"/>
+    <circle r="3.5" fill="#e9b44c"/>
+  </g>
+  <g transform="translate(118,30) scale(.9)">
+    <use xlink:href="#p5" href="#p5" fill="#e28265"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(72)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(144)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(216)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(288)"/>
+    <circle r="3.5" fill="#6e2347"/>
+  </g>
+  <g transform="translate(180,26)">
+    <circle r="11" fill="#e77f9f"/>
+    <circle cx="-2" cy="-2" r="6.5" fill="#c2547a"/>
+    <circle cx="1.5" cy="1" r="3" fill="#6e2347"/>
+  </g>
+  <g transform="translate(246,26) scale(.92)">
+    <use xlink:href="#p5" href="#p5" fill="#9b7ec8"/>
+    <use xlink:href="#p5" href="#p5" fill="#9b7ec8" transform="rotate(72)"/>
+    <use xlink:href="#p5" href="#p5" fill="#9b7ec8" transform="rotate(144)"/>
+    <use xlink:href="#p5" href="#p5" fill="#9b7ec8" transform="rotate(216)"/>
+    <use xlink:href="#p5" href="#p5" fill="#9b7ec8" transform="rotate(288)"/>
+    <circle r="3.5" fill="#e9b44c"/>
+  </g>
+  <g transform="translate(312,28) scale(.85)">
+    <use xlink:href="#p5" href="#p5" fill="#f2c14e"/>
+    <use xlink:href="#p5" href="#p5" fill="#f2c14e" transform="rotate(72)"/>
+    <use xlink:href="#p5" href="#p5" fill="#f2c14e" transform="rotate(144)"/>
+    <use xlink:href="#p5" href="#p5" fill="#f2c14e" transform="rotate(216)"/>
+    <use xlink:href="#p5" href="#p5" fill="#f2c14e" transform="rotate(288)"/>
+    <circle r="3.5" fill="#6e2347"/>
+  </g>
+  <circle cx="86" cy="40" r="3" fill="#c2547a" opacity=".9"/>
+  <circle cx="150" cy="45" r="2.5" fill="#9b7ec8" opacity=".9"/>
+  <circle cx="284" cy="42" r="3" fill="#e28265" opacity=".9"/>
+  <circle cx="336" cy="36" r="2.5" fill="#e9b44c" opacity=".9"/>
+  <circle cx="24" cy="40" r="2.5" fill="#e9b44c" opacity=".85"/>
+</svg>

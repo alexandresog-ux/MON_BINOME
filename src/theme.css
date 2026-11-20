@@ -1,4 +1,5 @@
-/* theme.css - MON BINOME : habillage "rose".
+/* theme.css - MON BINOME : habillage "Jardin d'Eden" (rose, corail, lavande,
+   or, vert feuillage et rouge vin).
    A importer APRES style.css (dans src/main.js : import './theme.css';).
    Regles :
    - Decorations uniquement en CSS (background-image vers /decor/*.svg), jamais d'innerHTML.
@@ -19,6 +20,9 @@
   --leaf-600: #4f7a5f;
   --leaf-500: #6a9a7a;
   --gold: #e9b44c;
+  --corail: #e28265;
+  --lavande: #9b7ec8;
+  --vin: #6e2347;
 
   --bg: #fff7ef;
   --card: #ffffff;
@@ -34,7 +38,7 @@
   --focus: var(--rose-700);
 
   --radius: 1.25rem;
-  --shadow: 0 1px 2px rgba(122, 46, 77, .06), 0 10px 28px rgba(122, 46, 77, .10);
+  --shadow: 0 1px 2px rgba(110, 35, 71, .06), 0 10px 28px rgba(110, 35, 71, .10);
   color-scheme: light dark;
 }
 
@@ -54,22 +58,26 @@
   }
 }
 
-/* ---------- Fond : lueur rose + motif de petales tres discret ---------- */
+/* ---------- Fond : lueurs rose / vert / or / vin + jardin de fleurs ---------- */
 body {
   background-color: var(--bg);
   background-image:
-    radial-gradient(48rem 30rem at 100% -8%, rgba(235, 163, 187, .38), transparent 62%),
-    radial-gradient(44rem 30rem at -8% 108%, rgba(246, 207, 219, .55), transparent 62%),
-    url("/decor/pattern-petals.svg");
-  background-size: auto, auto, 180px 180px;
+    radial-gradient(46rem 30rem at 100% -8%, rgba(235, 163, 187, .42), transparent 62%),
+    radial-gradient(44rem 30rem at -8% 108%, rgba(106, 154, 122, .30), transparent 62%),
+    radial-gradient(38rem 26rem at 6% -6%, rgba(233, 180, 76, .24), transparent 60%),
+    radial-gradient(52rem 34rem at 50% 118%, rgba(110, 35, 71, .14), transparent 65%),
+    url("/decor/pattern-garden.svg");
+  background-size: auto, auto, auto, auto, 200px 200px;
   color: var(--text);
 }
 @media (prefers-color-scheme: dark) {
   body {
     background-image:
-      radial-gradient(48rem 30rem at 100% -8%, rgba(194, 84, 122, .25), transparent 62%),
-      radial-gradient(44rem 30rem at -8% 108%, rgba(122, 46, 77, .30), transparent 62%),
-      url("/decor/pattern-petals.svg");
+      radial-gradient(46rem 30rem at 100% -8%, rgba(194, 84, 122, .28), transparent 62%),
+      radial-gradient(44rem 30rem at -8% 108%, rgba(79, 122, 95, .26), transparent 62%),
+      radial-gradient(38rem 26rem at 6% -6%, rgba(233, 180, 76, .14), transparent 60%),
+      radial-gradient(52rem 34rem at 50% 118%, rgba(110, 35, 71, .40), transparent 65%),
+      url("/decor/pattern-garden.svg");
   }
 }
 
@@ -82,38 +90,47 @@ h1, h2, h3 {
 .muted, .msg { color: var(--muted); }
 a, .link { color: var(--link); }
 
-/* ---------- Rose d'en-tete ----------
+/* ---------- Guirlande fleurie en haut de chaque ecran ----------
    Ecran de connexion (data-screen="login") : grande rose (bloc .hero).
-   Autres ecrans : petite rose en haut de .wrap. */
+   Autres ecrans : guirlande multicolore + ornament sous le titre. */
 .wrap::before {
   content: "";
   display: block;
-  height: 3.25rem;
-  margin: .25rem auto .75rem;
-  background: url("/decor/rose.svg") center / contain no-repeat;
-  filter: drop-shadow(0 6px 10px rgba(122, 46, 77, .22));
+  height: 3.75rem;
+  margin: .5rem auto .75rem;
+  background: url("/decor/garland.svg") center / contain no-repeat;
+  filter: drop-shadow(0 6px 10px rgba(110, 35, 71, .20));
 }
 .wrap[data-screen="login"]::before { display: none; }
 
 .hero { position: relative; }
+/* Ornement floral sous le titre : tous les ecrans sauf la connexion. */
+.wrap:not([data-screen="login"]) .hero::after {
+  content: "";
+  display: block;
+  width: 9.5rem;
+  height: 1.6rem;
+  margin: .35rem auto 0;
+  background: url("/decor/swash.svg") center / contain no-repeat;
+}
 .wrap[data-screen="login"] .hero { padding-top: 9.5rem; }
 .wrap[data-screen="login"] .hero::before {
   content: "";
   position: absolute;
   top: 0; left: 50%;
-  width: 8.5rem; height: 8.5rem;
+  width: 9rem; height: 9rem;
   transform: translateX(-50%);
   background: url("/decor/rose.svg") center / contain no-repeat;
-  filter: drop-shadow(0 10px 16px rgba(122, 46, 77, .28));
+  filter: drop-shadow(0 10px 16px rgba(110, 35, 71, .28));
   animation: bloom 7s ease-in-out infinite;
 }
-.wrap[data-screen="login"] .hero::after {   /* un petale qui tombe doucement */
+.wrap[data-screen="login"] .hero::after {   /* trois petales multicolores qui tombent */
   content: "";
   position: absolute;
-  top: 1rem; left: calc(50% + 3.5rem);
-  width: 1.1rem; height: 1.3rem;
-  background: url("/decor/petal.svg") center / contain no-repeat;
-  opacity: .8;
+  top: 1.5rem; left: calc(50% + 2rem);
+  width: 5.5rem; height: 7.1rem;
+  background: url("/decor/petals-fall.svg") center / contain no-repeat;
+  opacity: .85;
   animation: petal-fall 9s ease-in infinite;
 }
 @keyframes bloom {
@@ -122,14 +139,14 @@ a, .link { color: var(--link); }
 }
 @keyframes petal-fall {
   0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
-  15%  { opacity: .8; }
-  100% { transform: translate(-2.5rem, 7rem) rotate(160deg); opacity: 0; }
+  15%  { opacity: .85; }
+  100% { transform: translate(-2.5rem, 7rem) rotate(140deg); opacity: 0; }
 }
 
 /* ---------- Ecrans calmes (questions, revelation) : decor reduit ---------- */
 .wrap[data-screen="questions"]::before,
 .wrap[data-screen="reveal"]::before,
-.wrap[data-screen="smart"]::before { height: 2rem; }
+.wrap[data-screen="smart"]::before { height: 2.4rem; }
 .wrap[data-screen="questions"] .card::after,
 .wrap[data-screen="reveal"] .card::after { display: none; }
 
@@ -141,49 +158,50 @@ a, .link { color: var(--link); }
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
 }
-.card::before {   /* liseré rose -> or */
+.card::before {   /* lisere fleuri : vin -> rose -> or -> lavande -> vert */
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--rose-300), var(--rose-500) 55%, var(--gold));
+  height: 5px;
+  background: linear-gradient(90deg, var(--vin), var(--rose-500) 26%, var(--gold) 50%, var(--lavande) 74%, var(--leaf-500));
 }
-.card::after {    /* petale discret dans le coin, jamais derriere le texte */
+.card::after {    /* bouquet d'angle, jamais derriere le texte */
   content: "";
   position: absolute;
-  top: -1.1rem; right: -1.1rem;
-  width: 4.2rem; height: 4.2rem;
-  background: url("/decor/petal.svg") center / contain no-repeat;
-  opacity: .16;
-  transform: rotate(28deg);
+  top: -1.3rem; right: -1.3rem;
+  width: 5.2rem; height: 5.2rem;
+  background: url("/decor/bloom-corner.svg") center / contain no-repeat;
+  opacity: .24;
+  transform: rotate(10deg);
   pointer-events: none;
 }
 .card > * { position: relative; z-index: 1; }
 .card.plain::before, .card.plain::after { display: none; }
 
-/* ---------- Boutons : degrade rose + reflet qui glisse au survol ---------- */
+/* ---------- Boutons : degrade rose + reflet multicolore au survol ---------- */
 .btn {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--rose-600), var(--rose-800));
+  background: linear-gradient(135deg, var(--rose-600), var(--vin));
   color: #fff;
   border: 0;
   border-radius: .9rem;
-  box-shadow: 0 4px 14px rgba(122, 46, 77, .30);
+  box-shadow: 0 4px 14px rgba(110, 35, 71, .32);
   transition: transform .15s ease, box-shadow .15s ease;
 }
 .btn::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(115deg, transparent 34%, rgba(255, 255, 255, .30) 48%, transparent 62%);
+  background: linear-gradient(115deg, transparent 32%, rgba(242, 193, 78, .45) 44%, rgba(255, 255, 255, .55) 50%, rgba(155, 126, 200, .45) 56%, transparent 68%);
   transform: translateX(-130%);
   transition: transform .8s ease;
   pointer-events: none;
 }
 @media (hover: hover) {
-  .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(122, 46, 77, .34); }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(110, 35, 71, .38); }
   .btn:hover:not(:disabled)::after { transform: translateX(130%); }
 }
 .btn:active:not(:disabled) { transform: translateY(0); }
@@ -212,13 +230,13 @@ button:focus-visible, a:focus-visible {
   outline-offset: 2px;
 }
 
-/* ---------- Séparateur à fleur : <hr class="rose-divider"> ---------- */
+/* ---------- Séparateur à fleurs : <hr class="rose-divider"> ---------- */
 .rose-divider {
   border: 0;
-  height: 3rem;
+  height: 3.25rem;
   margin: 1rem auto;
-  max-width: 20rem;
-  background: url("/decor/divider.svg") center / contain no-repeat;
+  max-width: 22rem;
+  background: url("/decor/divider-garden.svg") center / contain no-repeat;
 }
 /* Pas de séparateur fantôme sous la section « Nos objectifs » vide. */
 .goals-card:empty + .rose-divider { display: none; }
@@ -229,8 +247,8 @@ button:focus-visible, a:focus-visible {
   content: "";
   position: absolute;
   top: .6rem; right: .6rem;
-  width: 1.6rem; height: 1.6rem;
-  background: url("/decor/rose.svg") center / contain no-repeat;
+  width: 1.75rem; height: 1.75rem;
+  background: url("/decor/flower-done.svg") center / contain no-repeat;
   opacity: 1;
   transform: none;
 }
@@ -243,33 +261,71 @@ button:focus-visible, a:focus-visible {
 @media (min-width: 40rem) {
   .categories { grid-template-columns: 1fr 1fr; }
 }
-/* Barre de progression et note d'alignement courante : dégradé rose. */
-.bar > span { background: linear-gradient(90deg, var(--rose-400), var(--rose-600)); }
+@media (hover: hover) {
+  .categories > .card.clickable:hover {
+    transform: translateY(-2px);
+    border-color: var(--lavande);
+    box-shadow: 0 8px 22px rgba(110, 35, 71, .16);
+  }
+}
+/* Barre de progression : pousse florale vert -> or -> rose -> vin. */
+.bar > span { background: linear-gradient(90deg, var(--leaf-500), var(--gold) 55%, var(--rose-400) 82%, var(--vin)); }
 .score.current {
-  background: linear-gradient(135deg, var(--rose-600), var(--rose-800));
+  background: linear-gradient(135deg, var(--rose-600), var(--vin));
   color: #fff;
 }
 @media (prefers-color-scheme: dark) {
   .score.current { background: linear-gradient(135deg, #e58aa9, #c2547a); color: #2b1020; }
 }
-/* Tableau de synthèse : lignes paires très légèrement teintées. */
+/* Tableau de synthèse : rayures alternées rose / vert très pâles. */
+.synth-table tbody tr:nth-child(odd) { background: rgba(106, 154, 122, .055); }
 .synth-table tbody tr:nth-child(even) { background: rgba(194, 84, 122, .06); }
-/* Bannières install/mise à jour et panneau de confirmation : mêmes rayons,
-   même ombre, bordure lisible (l'or ne tient pas le contraste 3:1). */
+/* Bannières install/mise à jour, confirmations, badge suggestion. */
 .install, .update { border-radius: var(--radius); box-shadow: var(--shadow); }
-.confirm { border-color: var(--rose-500); }
+.confirm { border-color: var(--vin); }
+/* Avertissement sécurité (violence, contrôle, peur) et questions sensibles :
+   liseré vin — l'or ne tenait pas le contraste 3:1 sur carte claire. */
+.warn { border-left-color: var(--vin); }
+.badge.suggest { background: rgba(110, 35, 71, .10); color: var(--vin); }
+/* Notes d'alignement comparées : les deux chiffres en rouge vin. */
+.score-card .val { color: var(--vin); }
+/* Code de contact : encart teinté vin, très lisible. */
+.code {
+  background: rgba(110, 35, 71, .07);
+  border: 1.5px dashed var(--rose-300);
+  border-radius: .9rem;
+  padding: .6rem .5rem;
+  color: var(--vin);
+}
+/* Écart de notes ≥ 3 : message « conversation approfondie » en vin. */
+.deep-talk {
+  background: rgba(110, 35, 71, .07);
+  border-left: 4px solid var(--vin);
+  border-radius: .6rem;
+  padding: .6rem .75rem;
+  color: var(--vin);
+  font-weight: 600;
+}
+@media (prefers-color-scheme: dark) {
+  .confirm { border-color: var(--rose-400); }
+  .warn { border-left-color: var(--rose-400); }
+  .badge.suggest { background: rgba(235, 163, 187, .18); color: var(--rose-200); }
+  .score-card .val { color: var(--rose-200); }
+  .code { background: rgba(235, 163, 187, .10); border-color: var(--rose-700); color: var(--rose-200); }
+  .deep-talk { background: rgba(235, 163, 187, .10); border-left-color: var(--rose-400); color: var(--rose-200); }
+}
 
 /* ---------- Accessibilité et impression ---------- */
 @media (prefers-reduced-motion: reduce) {
   .wrap[data-screen="login"] .hero::before,
   .wrap[data-screen="login"] .hero::after { animation: none; }
   .wrap[data-screen="login"] .hero::after { display: none; }
-  .btn, .btn::after { transition: none; }
+  .btn, .btn::after, .card { transition: none; }
 }
 @media print {
   body { background: #fff !important; }
   .wrap::before, .hero::before, .hero::after,
   .card::before, .card::after, .btn::after, .is-done::after, .rose-divider { display: none !important; }
-  .card { box-shadow: none; }
+  .card { box-shadow: none; transform: none; }
   .hero { padding-top: 0 !important; }
 }

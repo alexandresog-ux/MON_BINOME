@@ -115,7 +115,7 @@ export async function renderAlignment(root, ctx, categoryId) {
         h('div', { class: 'align-pair' },
           scoreCard(myName, mine.score),
           scoreCard(partnerName, theirs.score)),
-        h('p', {}, diff >= gap ? content.common.alignment.deep_talk_message : t.encouragement)));
+        h('p', { class: diff >= gap ? 'deep-talk' : '' }, diff >= gap ? content.common.alignment.deep_talk_message : t.encouragement)));
     }
     kids.push(h('div', { class: 'row' },
       h('button', { class: 'btn secondary', type: 'button', onclick: () => load() }, t.refresh),

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 180 30" width="180" height="30" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="fade" x1="0" x2="1">
+      <stop offset="0" stop-color="#6e2347" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#6e2347" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#6e2347" stop-opacity="0"/>
+    </linearGradient>
+    <path id="p5" d="M0,-2 C6,-4 10,-10 8,-15 C6,-20 -6,-20 -8,-15 C-10,-10 -6,-4 0,-2 Z"/>
+    <path id="lf" d="M0,0 C4,-7 12,-9 17,-4 C12,3 4,5 0,0 Z"/>
+  </defs>
+  <path d="M8,20 C44,12 68,24 90,17 C112,10 138,22 172,13" fill="none" stroke="url(#fade)" stroke-width="2" stroke-linecap="round"/>
+  <use xlink:href="#lf" href="#lf" fill="#6a9a7a" transform="translate(60,20) rotate(-24) scale(.65)" opacity=".8"/>
+  <use xlink:href="#lf" href="#lf" fill="#4f7a5f" transform="translate(118,18) rotate(22) scale(.6)" opacity=".8"/>
+  <g transform="translate(44,13) scale(.55)">
+    <use xlink:href="#p5" href="#p5" fill="#c2547a"/>
+    <use xlink:href="#p5" href="#p5" fill="#c2547a" transform="rotate(72)"/>
+    <use xlink:href="#p5" href="#p5" fill="#c2547a" transform="rotate(144)"/>
+    <use xlink:href="#p5" href="#p5" fill="#c2547a" transform="rotate(216)"/>
+    <use xlink:href="#p5" href="#p5" fill="#c2547a" transform="rotate(288)"/>
+    <circle r="4" fill="#e9b44c"/>
+  </g>
+  <g transform="translate(90,14) scale(.8)">
+    <use xlink:href="#p5" href="#p5" fill="#6e2347"/>
+    <use xlink:href="#p5" href="#p5" fill="#6e2347" transform="rotate(72)"/>
+    <use xlink:href="#p5" href="#p5" fill="#6e2347" transform="rotate(144)"/>
+    <use xlink:href="#p5" href="#p5" fill="#6e2347" transform="rotate(216)"/>
+    <use xlink:href="#p5" href="#p5" fill="#6e2347" transform="rotate(288)"/>
+    <circle r="4" fill="#f2c14e"/>
+  </g>
+  <g transform="translate(138,14) scale(.55)">
+    <use xlink:href="#p5" href="#p5" fill="#e28265"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(72)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(144)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(216)"/>
+    <use xlink:href="#p5" href="#p5" fill="#e28265" transform="rotate(288)"/>
+    <circle r="4" fill="#6e2347"/>
+  </g>
+  <circle cx="26" cy="17" r="2" fill="#9b7ec8" opacity=".7"/>
+  <circle cx="160" cy="12" r="2" fill="#e9b44c" opacity=".7"/>
+</svg>

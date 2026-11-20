@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 130 170" width="130" height="170" aria-hidden="true" focusable="false">
+  <defs>
+    <path id="pe" d="M50,112 C12,96 -2,48 24,18 C34,6 66,6 76,18 C102,48 88,96 50,112 Z"/>
+  </defs>
+  <use xlink:href="#pe" href="#pe" fill="#e28265" transform="translate(34,38) scale(.34) rotate(-18) translate(-50,-60)"/>
+  <use xlink:href="#pe" href="#pe" fill="#9b7ec8" transform="translate(88,86) scale(.28) rotate(24) translate(-50,-60)"/>
+  <use xlink:href="#pe" href="#pe" fill="#f2c14e" transform="translate(56,136) scale(.31) rotate(-6) translate(-50,-60)"/>
+</svg>
