@@ -122,38 +122,47 @@ export async function renderSettings(root, ctx) {
     h('h2', {}, t.safety.title),
     h('p', {}, content.common.safety_warning)));
 
-  // 4 — Délier le couple (avec blocage optionnel).
-  const unlinkMsg = h('p', { class: 'msg', role: 'status' });
-  const blockChk = h('input', { type: 'checkbox' });
-  const unlinkConfirm = makeConfirm(t, {
-    title: t.unlink.confirmTitle,
-    text: t.unlink.confirmText,
-    word: t.unlink.word,
-    okLabel: t.unlink.confirmOk,
-    onOk: async (msgEl, okBtn, cancelBtn) => {
-      const { data, error } = await supabase.rpc('unlink_couple', { p_block: blockChk.checked });
-      if (error || !data?.ok) {
-        msgEl.textContent = error ? ui.errors.generic : errorMessage(data?.error);
-        okBtn.disabled = false;
-        cancelBtn.disabled = false;
-        return;
+  // 4 — Délier le couple (avec blocage optionnel) : seulement s'il existe un
+  // couple. Sans couple, la section affiche un message sobre à la place.
+  const { data: member } = await supabase.from('couple_members')
+    .select('couple_id')
+    .eq('user_id', uid)
+    .maybeSingle();
+  if (member?.couple_id) {
+    const unlinkMsg = h('p', { class: 'msg', role: 'status' });
+    const blockChk = h('input', { type: 'checkbox' });
+    const unlinkConfirm = makeConfirm(t, {
+      title: t.unlink.confirmTitle,
+      text: t.unlink.confirmText,
+      word: t.unlink.word,
+      okLabel: t.unlink.confirmOk,
+      onOk: async (msgEl, okBtn, cancelBtn) => {
+        const { data, error } = await supabase.rpc('unlink_couple', { p_block: blockChk.checked });
+        if (error || !data?.ok) {
+          msgEl.textContent = error ? ui.errors.generic : errorMessage(data?.error);
+          okBtn.disabled = false;
+          cancelBtn.disabled = false;
+          return;
+        }
+        // Ta propre déliaison : pas de faux « il ou elle a délié » sur l'accueil.
+        if (ctx.state) ctx.state.seenCouple = false;
+        navigate({ name: 'home', notice: t.unlink.success });
       }
-      // Ta propre déliaison : pas de faux « il ou elle a délié » sur l'accueil.
-      if (ctx.state) ctx.state.seenCouple = false;
-      navigate({ name: 'home', notice: t.unlink.success });
-    }
-  });
-  const unlinkBtn = h('button', {
-    class: 'btn danger', type: 'button',
-    onclick: () => unlinkConfirm.open(unlinkBtn)
-  }, t.unlink.action);
-  root.append(h('section', { class: 'card' },
-    h('h2', {}, t.unlink.title),
-    h('p', {}, t.unlink.text),
-    h('label', { class: 'check' }, blockChk, h('span', {}, t.unlink.blockLabel)),
-    unlinkBtn,
-    unlinkMsg,
-    unlinkConfirm.panel));
+    });
+    const unlinkBtn = h('button', {
+      class: 'btn danger', type: 'button',
+      onclick: () => unlinkConfirm.open(unlinkBtn)
+    }, t.unlink.action);
+    root.append(h('section', { class: 'card' },
+      h('h2', {}, t.unlink.title),
+      h('p', {}, t.unlink.text),
+      h('label', { class: 'check' }, blockChk, h('span', {}, t.unlink.blockLabel)),
+      unlinkBtn,
+      unlinkMsg,
+      unlinkConfirm.panel));
+  } else {
+    root.append(h('p', { class: 'muted center' }, t.unlink.noCouple));
+  }
 
   // 5 — Comptes bloqués : uniquement via les RPC (la table blocks n'est
   // jamais lue directement).

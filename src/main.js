@@ -4,7 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { supabase, supabaseReady } from './supabase.js';
 import { h } from './dom.js';
 import { ui } from './data/ui.fr.js';
-import { renderLogin } from './views/login.js';
+import { renderLogin, renderRecovery } from './views/login.js';
 import { renderHome } from './views/home.js';
 import { renderQuestions } from './views/questions.js';
 import { renderWaiting } from './views/waiting.js';
@@ -25,7 +25,7 @@ const root = document.getElementById('app');
 const SCREENS = {
   privacy: 'privacy', questions: 'questions', wait: 'waiting', reveal: 'reveal',
   alignment: 'alignment', smart: 'smart', synthesis: 'synthesis',
-  settings: 'settings', home: 'home'
+  settings: 'settings', home: 'home', recovery: 'login'
 };
 
 let currentSession = null;
@@ -47,6 +47,18 @@ async function render() {
   // avant la vérification de connexion (et avant le reset de route).
   if (route.name === 'privacy') {
     renderPrivacy(main, { navigate });
+    return;
+  }
+  // Mot de passe oublié : écran « Nouveau mot de passe » après le lien email
+  // (PASSWORD_RECOVERY). Nécessite la session temporaire ouverte par le lien.
+  if (route.name === 'recovery') {
+    if (currentSession) {
+      renderRecovery(main, { supabase, navigate });
+    } else {
+      route = { name: 'home' };
+      main.setAttribute('data-screen', 'login');
+      renderLogin(main, { supabase, navigate });
+    }
     return;
   }
   if (!currentSession) {
@@ -121,14 +133,24 @@ if (!supabaseReady) {
   // du réseau (online) — au plus un appel toutes les 30 minutes.
   const activity = createActivity();
   activity.start({ supabase, hasSession });
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
     const uid = session?.user?.id ?? null;
-    if (uid === currentUid) return;
-    currentUid = uid;
-    currentSession = session ?? null;
-    // Changement de compte (ou déconnexion) : on oublie le couple précédent.
-    appState.seenCouple = false;
-    route = { name: 'home' };
+    // Lien « mot de passe oublié » cliqué : ouvre l'écran de réinitialisation.
+    // Seule la route change ici — aucun await Supabase, aucun setTimeout dédié ;
+    // le rendu part par le setTimeout commun ci-dessous.
+    if (event === 'PASSWORD_RECOVERY') {
+      currentUid = uid;
+      currentSession = session ?? null;
+      appState.seenCouple = false;
+      route = { name: 'recovery' };
+    } else {
+      if (uid === currentUid) return;
+      currentUid = uid;
+      currentSession = session ?? null;
+      // Changement de compte (ou déconnexion) : on oublie le couple précédent.
+      appState.seenCouple = false;
+      route = { name: 'home' };
+    }
     // setTimeout : ne jamais appeler supabase (await) directement dans ce callback (risque de blocage).
     setTimeout(() => render(), 0);
     // Après le rendu : touch_activity en échec silencieux ne doit jamais

@@ -38,7 +38,10 @@ export function renderLogin(root, { supabase, navigate }) {
       ? h('input', { type: 'checkbox', required: true, name: 'consent' })
       : null;
     const msg = h('p', { class: 'msg', role: 'status' }, message);
-    const submit = h('button', { class: 'btn', type: 'submit' }, mode === 'login' ? t.submitLogin : t.submitSignup);
+    const submit = h('button', { class: 'btn', type: 'submit' },
+      mode === 'login' ? t.submitLogin
+        : mode === 'signup' ? t.submitSignup
+          : t.forgotSubmit);
 
     const form = h('form', {
       onsubmit: async (event) => {
@@ -51,6 +54,14 @@ export function renderLogin(root, { supabase, navigate }) {
               email: email.value.trim(), password: password.value
             });
             if (error) throw error;
+          } else if (mode === 'forgot') {
+            const { error } = await supabase.auth.resetPasswordForEmail(
+              email.value.trim(), { redirectTo: window.location.origin }
+            );
+            if (error) throw error;
+            mode = 'login';
+            draw(t.forgotSent);
+            return;
           } else {
             if (!consent.checked) {
               msg.textContent = t.consentRequired;
@@ -74,14 +85,15 @@ export function renderLogin(root, { supabase, navigate }) {
           }
           // Connexion réussie : main.js re-rend l'écran via onAuthStateChange.
         } catch (err) {
-          msg.textContent = authErrorMessage(err);
+          // À l'inscription, jamais le détail technique : message sobre unique.
+          msg.textContent = mode === 'signup' ? t.signupError : authErrorMessage(err);
           submit.disabled = false;
         }
       }
     },
       name && field(t.name, name),
       field(t.email, email),
-      field(t.password, password),
+      mode !== 'forgot' && field(t.password, password),
       consent && h('label', { class: 'check' }, consent, h('span', {}, t.consentText)),
       submit,
       msg
@@ -92,6 +104,23 @@ export function renderLogin(root, { supabase, navigate }) {
       onclick: () => { mode = mode === 'login' ? 'signup' : 'login'; draw(); }
     }, mode === 'login' ? t.toSignup : t.toLogin);
 
+    // Mot de passe oublié : visible depuis la connexion, bascule vers le
+    // formulaire email qui envoie le lien de réinitialisation.
+    const forgot = mode === 'login'
+      ? h('p', { class: 'center' },
+          h('button', {
+            class: 'link', type: 'button',
+            onclick: () => { mode = 'forgot'; draw(); }
+          }, t.forgotPassword))
+      : null;
+    const forgotBack = mode === 'forgot'
+      ? h('p', { class: 'center' },
+          h('button', {
+            class: 'link', type: 'button',
+            onclick: () => { mode = 'login'; draw(); }
+          }, t.toLogin))
+      : null;
+
     // Politique de confidentialité : accessible des deux côtés du formulaire,
     // y compris sans session.
     const privacyLink = h('p', { class: 'center' },
@@ -100,6 +129,76 @@ export function renderLogin(root, { supabase, navigate }) {
         onclick: () => navigate?.({ name: 'privacy' })
       }, t.privacyLink));
 
-    card.replaceChildren(h('h2', {}, mode === 'login' ? t.loginTitle : t.signupTitle), form, toggle, privacyLink);
+    const title = mode === 'login' ? t.loginTitle
+      : mode === 'signup' ? t.signupTitle
+        : t.forgotTitle;
+    const intro = mode === 'forgot'
+      ? h('p', { class: 'muted' }, t.forgotIntro)
+      : null;
+    // En connexion : bascule vers l'inscription + mot de passe oublié.
+    // En inscription : bascule vers la connexion. En oublié : retour connexion.
+    const links = [];
+    if (mode === 'login') links.push(toggle, forgot);
+    else if (mode === 'signup') links.push(toggle);
+    else links.push(forgotBack);
+    card.replaceChildren(h('h2', {}, title), intro, form, ...links, privacyLink);
   }
+}
+
+// Écran « Nouveau mot de passe » après le clic sur le lien reçu par email
+// (événement PASSWORD_RECOVERY). Deux champs, 10 caractères minimum,
+// updateUser({ password }) — jamais dans le callback d'authentification.
+export function renderRecovery(root, { supabase, navigate }) {
+  const t = ui.login;
+  const card = h('section', { class: 'card' });
+  root.append(h('header', { class: 'hero' },
+    h('h1', {}, ui.appName),
+    h('p', { class: 'muted' }, ui.questionnaireSubtitle)), card);
+
+  const pass = h('input', {
+    type: 'password', required: true, minlength: 10,
+    autocomplete: 'new-password'
+  });
+  const pass2 = h('input', {
+    type: 'password', required: true, minlength: 10,
+    autocomplete: 'new-password'
+  });
+  const msg = h('p', { class: 'msg', role: 'status' });
+  const submit = h('button', { class: 'btn', type: 'submit' }, t.recoverySubmit);
+
+  const form = h('form', {
+    onsubmit: async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      msg.textContent = '';
+      if (pass.value.length < 10) {
+        msg.textContent = t.recoveryShort;
+        submit.disabled = false;
+        return;
+      }
+      if (pass.value !== pass2.value) {
+        msg.textContent = t.recoveryMismatch;
+        submit.disabled = false;
+        return;
+      }
+      const { error } = await supabase.auth.updateUser({ password: pass.value });
+      if (error) {
+        msg.textContent = t.recoveryError;
+        submit.disabled = false;
+        return;
+      }
+      msg.textContent = t.recoveryDone;
+      // Session rétablie : retour à l'accueil (main.js re-rend).
+      navigate({ name: 'home', notice: t.recoveryDone });
+    }
+  },
+    field(t.newPassword, pass),
+    field(t.confirmNewPassword, pass2),
+    submit,
+    msg);
+
+  card.replaceChildren(
+    h('h2', {}, t.recoveryTitle),
+    h('p', { class: 'muted' }, t.recoveryIntro),
+    form);
 }

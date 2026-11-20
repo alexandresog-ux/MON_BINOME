@@ -27,7 +27,22 @@ export const ui = {
       + 'J\'accepte que mes réponses soient enregistrées pour faire fonctionner MON BINÔME. '
       + 'Mon ou ta partenaire ne les verra qu\'après que nous aurons tous les deux validé une catégorie.',
     consentRequired: 'Coche la case ci-dessus pour créer ton compte.',
-    privacyLink: 'Lire la politique de confidentialité'
+    privacyLink: 'Lire la politique de confidentialité',
+    forgotPassword: 'Mot de passe oublié ?',
+    forgotTitle: 'Mot de passe oublié',
+    forgotIntro: 'Entre ton adresse email : si un compte existe, un message arrive dans ta boîte mail pour choisir un nouveau mot de passe.',
+    forgotSubmit: 'Recevoir le lien',
+    forgotSent: 'Si cette adresse est connue, un message vient de partir.',
+    signupError: 'L\'inscription n\'a pas pu aboutir. Vérifie que tu as bien coché la case de confirmation, puis réessaie.',
+    recoveryTitle: 'Nouveau mot de passe',
+    recoveryIntro: 'Choisis un nouveau mot de passe pour ton compte.',
+    newPassword: 'Nouveau mot de passe (10 caractères minimum)',
+    confirmNewPassword: 'Confirme le nouveau mot de passe',
+    recoverySubmit: 'Enregistrer le mot de passe',
+    recoveryMismatch: 'Les deux mots de passe ne correspondent pas.',
+    recoveryShort: 'Le mot de passe doit comporter au moins 10 caractères.',
+    recoveryDone: 'Mot de passe modifié.',
+    recoveryError: 'Enregistrement impossible. Réessaie.'
   },
   home: {
     title: 'Bienvenue',
@@ -257,7 +272,8 @@ export const ui = {
       confirmText: 'Toutes vos données communes seront supprimées définitivement, pour tous les deux.',
       confirmOk: 'Confirmer',
       word: 'DÉLIER',
-      success: 'Vous êtes délié(e). Toutes vos données communes ont été supprimées.'
+      success: 'Vous êtes délié(e). Toutes vos données communes ont été supprimées.',
+      noCouple: 'Tu n\'es pas encore lié(e) à un(e) partenaire.'
     },
     blocks: {
       title: 'Comptes bloqués',

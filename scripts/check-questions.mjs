@@ -149,6 +149,8 @@ function makeSupabase(opts = {}) {
   const signUpCalls = [];
   const signInCalls = [];
   const signOutCalls = [];
+  const resetCalls = [];
+  const updateCalls = [];
   const status = opts.status ?? [];
   const people = opts.people ?? [];
   const alignRows = [...(opts.alignment ?? [])];
@@ -159,7 +161,7 @@ function makeSupabase(opts = {}) {
   let stampN = 0;
   const stamp = () => `2026-06-15T12:00:00.${String(stampN++).padStart(6, '0')}+00:00`;
   const resolve = (s) => {
-    queries.push({ table: s.table, op: s.op, filters: { ...s.filters }, payload: s.payload, opts: s.opts });
+    queries.push({ table: s.table, op: s.op, filters: { ...s.filters }, payload: s.payload, opts: s.opts, columns: s.columns });
     if (s.table === 'couple_members') {
       const coupleId = opts.couple === undefined ? 'couple-1' : opts.couple;
       return Promise.resolve({ data: coupleId ? [{ couple_id: coupleId }] : [], error: null });
@@ -294,9 +296,9 @@ function makeSupabase(opts = {}) {
     return Promise.resolve({ data: [], error: null });
   };
   const from = (table) => {
-    const s = { table, op: 'select', payload: null, filters: {} };
+    const s = { table, op: 'select', payload: null, filters: {}, columns: null };
     const q = {
-      select() { return q; },
+      select(cols) { s.columns = cols ?? null; return q; },
       eq(col, val) { s.filters[col] = val; return q; },
       upsert(payload, upsertOpts) {
         s.op = 'upsert'; s.payload = payload; s.opts = upsertOpts ?? null; return q;
@@ -338,15 +340,33 @@ function makeSupabase(opts = {}) {
       }
       return Promise.resolve({ data: { ok: true }, error: null });
     },
-    // Auth tracée : inscription (consentement), connexion, déconnexion.
+    // Auth tracée : inscription (consentement), connexion, déconnexion,
+    // mot de passe oublié (opts.signUpError simule un refus de la base).
     auth: {
       signUp(payload) {
         signUpCalls.push(payload);
+        if (opts.signUpError) {
+          return Promise.resolve({ data: { session: null, user: null }, error: opts.signUpError });
+        }
         return Promise.resolve({ data: { session: opts.signUpSession ?? null, user: { id: 'user-new' } }, error: null });
       },
       signInWithPassword(payload) {
         signInCalls.push(payload);
         return Promise.resolve({ data: { session: { user: { id: 'user-1' } }, user: { id: 'user-1' } }, error: null });
+      },
+      resetPasswordForEmail(payload, options) {
+        resetCalls.push({ payload, options });
+        if (opts.resetError) {
+          return Promise.resolve({ data: null, error: opts.resetError });
+        }
+        return Promise.resolve({ data: {}, error: null });
+      },
+      updateUser(payload) {
+        updateCalls.push(payload);
+        if (opts.updateError) {
+          return Promise.resolve({ data: null, error: opts.updateError });
+        }
+        return Promise.resolve({ data: { user: { id: 'user-1' } }, error: null });
       },
       signOut() { signOutCalls.push(true); return Promise.resolve({ error: null }); },
       onAuthStateChange() { return { data: { subscription: { unsubscribe() {} } } }; }
@@ -374,7 +394,7 @@ function makeSupabase(opts = {}) {
       }
     },
     rows, goalRows, reviewRows, log, queries, rpcs, rpcCalls,
-    signUpCalls, signInCalls, signOutCalls
+    signUpCalls, signInCalls, signOutCalls, resetCalls, updateCalls
   };
 }
 
@@ -392,7 +412,7 @@ const { renderSynthesis } = await server.ssrLoadModule('/src/views/synthesis.js'
 const { renderCategories } = await server.ssrLoadModule('/src/views/categories.js');
 const { renderSettings } = await server.ssrLoadModule('/src/views/settings.js');
 const { renderPrivacy } = await server.ssrLoadModule('/src/views/privacy.js');
-const { renderLogin } = await server.ssrLoadModule('/src/views/login.js');
+const { renderLogin, renderRecovery } = await server.ssrLoadModule('/src/views/login.js');
 const { renderHome } = await server.ssrLoadModule('/src/views/home.js');
 const { createActivity } = await server.ssrLoadModule('/src/activity.js');
 const { ui } = await server.ssrLoadModule('/src/data/ui.fr.js');
@@ -2227,12 +2247,12 @@ console.log('\n== 41. Thème rose : imports, data-screen, décor, séparateurs, 
   // (b) Un data-screen par écran : SCREENS, login sans session, accueil dynamique.
   const screensBlock = /const SCREENS = \{([\s\S]*?)\};/.exec(mainSrc);
   const pairs = screensBlock ? [...screensBlock[1].matchAll(/(\w+)\s*:\s*'([\w-]+)'/g)] : [];
-  const expectedRoutes = ['alignment', 'home', 'privacy', 'questions', 'reveal', 'settings', 'smart', 'synthesis', 'wait'];
+  const expectedRoutes = ['alignment', 'home', 'privacy', 'questions', 'recovery', 'reveal', 'settings', 'smart', 'synthesis', 'wait'];
   const gotRoutes = pairs.map((p) => p[1]).sort();
   if (!screensBlock) fail('constante SCREENS absente de main.js');
   else if (JSON.stringify(gotRoutes) !== JSON.stringify(expectedRoutes)) {
     fail(`SCREENS : routes attendues ${expectedRoutes.join(', ')}, obtenues ${gotRoutes.join(', ')}`);
-  } else ok('SCREENS : les 9 routes du routeur ont leur data-screen');
+  } else ok('SCREENS : les 10 routes du routeur ont leur data-screen');
   if (!mainSrc.includes("main.setAttribute('data-screen', 'login')")) {
     fail('écran de connexion sans session : data-screen login absent');
   } else ok('sans session : data-screen login posé sur .wrap');
@@ -2330,6 +2350,265 @@ console.log('\n== 41. Thème rose : imports, data-screen, décor, séparateurs, 
   if (/outline:\s*3px solid var\(--gold\)/.test(themeSrc)) fail('focus encore en or (contraste sous 3:1)');
   else if (!/outline:\s*3px solid var\(--focus\)/.test(themeSrc)) fail('règle de focus var(--focus) absente de theme.css');
   else ok('focus : contour var(--focus) rose (contraste AA)');
+
+  // Palette « Jardin d'Éden » : couleurs variées + rouge vin.
+  const gardenVars = ['--vin:', '--corail:', '--lavande:', '--leaf-500:', '--gold:'];
+  const missingVars = gardenVars.filter((v) => !themeSrc.includes(v));
+  if (missingVars.length) fail(`palette jardin incomplète : ${missingVars.join(' ')}`);
+  else ok('palette jardin : vin, corail, lavande, vert et or définis');
+  if (!themeSrc.includes('pattern-garden.svg') || !themeSrc.includes('garland.svg')) {
+    fail('décors jardin absents : pattern-garden.svg et/ou garland.svg non référencés');
+  } else ok('fond à fleurs et guirlande fleurie référencés dans theme.css');
+
+  // Rouge vin effectivement employé (pas seulement défini).
+  const vinUses = (themeSrc.match(/var\(--vin\)/g) || []).length;
+  if (vinUses < 4) fail(`rouge vin trop peu employé : ${vinUses} usage(s) var(--vin) dans theme.css`);
+  else ok(`rouge vin employé : ${vinUses} usages var(--vin) (bouton, barre, notes, code…)`);
+
+  // Avertissement violence/contrôle/peur : liseré en vin, pas en or (contraste).
+  if (!/\.warn\s*\{[^}]*var\(--vin\)/.test(themeSrc)) {
+    fail('theme.css : .warn (avertissement sécurité) sans bordure var(--vin)');
+  } else ok('theme.css : avertissement sécurité bordé de rouge vin');
+
+  // theme-color (barre du navigateur / PWA) alignée sur le vin du thème.
+  const vinHex = /--vin:\s*(#[0-9a-fA-F]{6})/.exec(themeSrc)?.[1]?.toLowerCase();
+  const htmlSrc = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const viteSrc = readFileSync(new URL('../vite.config.js', import.meta.url), 'utf8');
+  const htmlColor = /name="theme-color"\s+content="(#[0-9a-fA-F]{6})"/.exec(htmlSrc)?.[1]?.toLowerCase();
+  const manifestColor = /theme_color:\s*'(#[0-9a-fA-F]{6})'/.exec(viteSrc)?.[1]?.toLowerCase();
+  if (!vinHex) fail('--vin hex introuvable dans theme.css');
+  else if (htmlColor !== vinHex) fail(`index.html theme-color ${htmlColor} ≠ --vin ${vinHex}`);
+  else if (manifestColor !== vinHex) fail(`manifest theme_color ${manifestColor} ≠ --vin ${vinHex}`);
+  else ok(`theme-color PWA alignée sur le rouge vin (${vinHex})`);
+
+  // Message d'écart ≥ 3 : classe .deep-talk posée à l'écran et stylée en vin.
+  const alignSrc = readFileSync(new URL('../src/views/alignment.js', import.meta.url), 'utf8');
+  if (!alignSrc.includes("class: diff >= gap ? 'deep-talk' : ''")) {
+    fail('alignment.js : classe deep-talk absente du message d\'écart');
+  } else ok('alignment.js : classe deep-talk posée si écart ≥ 3');
+  if (!/\.deep-talk\s*\{[^}]*var\(--vin\)/.test(themeSrc)) {
+    fail('theme.css : règle .deep-talk en rouge vin absente');
+  } else ok('theme.css : .deep-talk stylée en rouge vin');
+}
+
+console.log('\n== 42. Paramètres sans couple : section Délier absente, message sobre ==');
+{
+  // Sans couple : ni titre « Délier le couple », ni bouton, ni panneau.
+  const solo = makeSupabase({ people: PEOPLE, couple: null });
+  const s = await renderSettingsView(solo);
+  const heads = walk(s.root).filter((e) => e.tagName === 'H2').map((e) => e.textContent.trim());
+  if (heads.includes(ui.settings.unlink.title)) {
+    fail('sans couple : section « Délier le couple » encore affichée');
+  } else ok('sans couple : section « Délier le couple » absente');
+  if (byText(s.root, 'BUTTON', ui.settings.unlink.action)) {
+    fail('sans couple : bouton « Délier » présent');
+  } else ok('sans couple : aucun bouton « Délier »');
+  if (confirmPanels(s.root).some((p) => p.textContent.includes(ui.settings.unlink.word))) {
+    fail('sans couple : panneau de confirmation de déliaison présent');
+  } else ok('sans couple : aucun panneau de confirmation de déliaison');
+  if (!byText(s.root, 'P', ui.settings.unlink.noCouple)) {
+    fail('sans couple : message « Tu n\'es pas encore lié(e)… » absent');
+  } else ok('sans couple : message sobre « Tu n\'es pas encore lié(e) à un(e) partenaire. » affiché');
+  const coupleRead = solo.queries.find((q) => q.table === 'couple_members');
+  if (!coupleRead) fail('aucune lecture de couple_members pour statuer sur le couple');
+  else if (coupleRead.columns === '*' || coupleRead.columns === null) {
+    fail(`lecture couple_members sans colonnes explicites : ${JSON.stringify(coupleRead.columns)}`);
+  } else if (!String(coupleRead.columns).includes('couple_id')) {
+    fail(`select couple_members : ${coupleRead.columns} ne mentionne pas couple_id`);
+  } else ok(`couple_members lu avec select('${coupleRead.columns}') (jamais *)`);
+
+  // Avec couple : la section complète est là.
+  const linked = makeSupabase({ people: PEOPLE, couple: 'couple-1' });
+  const s2 = await renderSettingsView(linked);
+  const heads2 = walk(s2.root).filter((e) => e.tagName === 'H2').map((e) => e.textContent.trim());
+  if (!heads2.includes(ui.settings.unlink.title)) {
+    fail('avec couple : section « Délier le couple » absente');
+  } else if (!byText(s2.root, 'BUTTON', ui.settings.unlink.action)) {
+    fail('avec couple : bouton « Délier » absent');
+  } else if (byText(s2.root, 'P', ui.settings.unlink.noCouple)) {
+    fail('avec couple : message « pas encore lié(e) » affiché à tort');
+  } else ok('avec couple : section complète (titre + bouton), sans le message solo');
+}
+
+console.log('\n== 43. Mot de passe oublié : lien, envoi sobre, écran Nouveau mot de passe ==');
+{
+  const supabase = makeSupabase();
+  const nav = [];
+  const root = new MiniEl('div');
+  renderLogin(root, { supabase, navigate: (r) => nav.push(r) });
+
+  const forgotBtn = byText(root, 'BUTTON', ui.login.forgotPassword);
+  if (!forgotBtn) fail('lien « Mot de passe oublié ? » absent de la connexion');
+  else {
+    await click(forgotBtn);
+    if (!byText(root, 'H2', ui.login.forgotTitle)) fail('écran « Mot de passe oublié » non affiché');
+    else ok('lien « Mot de passe oublié ? » → écran dédié');
+    const form = walk(root).find((e) => e.tagName === 'FORM');
+    const email = walk(form).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'email');
+    const pass = walk(form).find((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'password');
+    if (pass) fail('champ mot de passe présent sur l\'écran mot de passe oublié');
+    else ok('formulaire mot de passe oublié : email seul (pas de mot de passe)');
+    await type(email, 'sam@example.com');
+    await submitForm(form);
+    if (supabase.resetCalls.length !== 1) {
+      fail(`resetPasswordForEmail appelé ${supabase.resetCalls.length} fois`);
+    } else {
+      const call = supabase.resetCalls[0];
+      if (call.payload !== 'sam@example.com') fail(`email transmis incorrect : ${JSON.stringify(call.payload)}`);
+      else if (call.options?.redirectTo !== window.location.origin) {
+        fail(`redirectTo incorrect : ${JSON.stringify(call.options?.redirectTo)}`);
+      } else ok('resetPasswordForEmail(email, { redirectTo: origin }) appelé une fois');
+    }
+    if (!byText(root, 'P', ui.login.forgotSent)) {
+      fail('message « Si cette adresse est connue… » absent après envoi');
+    } else ok('message sobre « Si cette adresse est connue, un message vient de partir. » affiché');
+    // Retour à la connexion : l'écran envoyé bascule en mode login (checkMail).
+    if (!byText(root, 'H2', ui.login.loginTitle)) {
+      fail('retour à la connexion non affiché après l\'envoi du lien');
+    } else if (!byText(root, 'BUTTON', ui.login.toSignup)) {
+      fail('lien « S\'inscrire » absent de l\'écran de connexion');
+    } else ok('retour à la connexion depuis l\'écran mot de passe oublié');
+    // Depuis la connexion, le lien mot de passe oublié est de nouveau là.
+    if (!byText(root, 'BUTTON', ui.login.forgotPassword)) {
+      fail('lien « Mot de passe oublié ? » absent après retour');
+    } else ok('lien « Mot de passe oublié ? » toujours accessible depuis la connexion');
+  }
+
+  // Écran « Nouveau mot de passe » (PASSWORD_RECOVERY) : 2 champs, 10 car. min.
+  const rootR = new MiniEl('div');
+  const navR = [];
+  renderRecovery(rootR, { supabase, navigate: (r) => navR.push(r) });
+  if (!byText(rootR, 'H2', ui.login.recoveryTitle)) fail('titre « Nouveau mot de passe » absent');
+  else ok('écran de réinitialisation rendu');
+  const passwords = walk(rootR).filter((e) => e.tagName === 'INPUT' && e.getAttribute('type') === 'password');
+  if (passwords.length !== 2) fail(`attendu 2 champs mot de passe, obtenu ${passwords.length}`);
+  else ok('deux champs : nouveau mot de passe + confirmation');
+  const formR = walk(rootR).find((e) => e.tagName === 'FORM');
+  const passA = passwords[0];
+  const passB = passwords[1];
+  if (passA.getAttribute('minlength') !== '10') fail(`minlength du 1er champ : ${passA.getAttribute('minlength')} au lieu de 10`);
+  else ok('minlength 10 sur le nouveau mot de passe');
+
+  await type(passA, 'court');
+  await type(passB, 'court');
+  await submitForm(formR);
+  if (supabase.updateCalls.length) fail('updateUser appelé avec un mot de passe trop court');
+  else if (!byText(rootR, 'P', ui.login.recoveryShort)) fail('message « 10 caractères minimum » absent');
+  else ok('moins de 10 caractères : refusé, rien n\'est envoyé');
+
+  await type(passA, 'nouveaumotdepasse');
+  await type(passB, 'autremotdepasse');
+  await submitForm(formR);
+  if (supabase.updateCalls.length) fail('updateUser appelé avec des mots de passe différents');
+  else if (!byText(rootR, 'P', ui.login.recoveryMismatch)) fail('message « ne correspondent pas » absent');
+  else ok('champs différents : refusé avec message explicite');
+
+  await type(passB, 'nouveaumotdepasse');
+  await submitForm(formR);
+  if (supabase.updateCalls.length !== 1) {
+    fail(`updateUser appelé ${supabase.updateCalls.length} fois`);
+  } else if (supabase.updateCalls[0]?.password !== 'nouveaumotdepasse') {
+    fail(`payload updateUser incorrect : ${JSON.stringify(supabase.updateCalls[0])}`);
+  } else ok('updateUser({ password }) envoyé une seule fois avec le bon mot de passe');
+  if (!byText(rootR, 'P', ui.login.recoveryDone)) fail('message « Mot de passe modifié. » absent');
+  else ok('succès : « Mot de passe modifié. » affiché');
+  if (navR.at(-1)?.name !== 'home') fail(`retour à l'accueil absent : ${JSON.stringify(navR)}`);
+  else ok('retour à l\'accueil après réinitialisation');
+}
+
+console.log('\n== 44. Inscription : toute erreur affiche le même message sobre ==');
+{
+  // La base refuse (Database error saving new user) : jamais le détail technique.
+  const dbFail = makeSupabase({
+    signUpError: { code: 'unexpected_failure', message: 'Database error saving new user' }
+  });
+  const root1 = new MiniEl('div');
+  renderLogin(root1, { supabase: dbFail, navigate: () => {} });
+  await click(byText(root1, 'BUTTON', ui.login.toSignup));
+  let form = walk(root1).find((e) => e.tagName === 'FORM');
+  await type(walk(form).find((e) => e.getAttribute('type') === 'text'), 'Alexandria');
+  await type(walk(form).find((e) => e.getAttribute('type') === 'email'), 'sam@example.com');
+  await type(walk(form).find((e) => e.getAttribute('type') === 'password'), 'motdepasse123');
+  walk(form).find((e) => e.getAttribute('type') === 'checkbox').checked = true;
+  await submitForm(form);
+  const shown1 = root1.textContent;
+  if (shown1.includes('Database error') || shown1.includes('unexpected_failure')) {
+    fail('inscription : détail technique de la base affiché à l\'écran');
+  } else ok('inscription : aucune fuite du message technique de la base');
+  if (!byText(root1, 'P', ui.login.signupError)) {
+    fail('message sobre d\'inscription absent');
+  } else ok('message sobre unique : « L\'inscription n\'a pas pu aboutir… »');
+
+  // Autre code d'erreur (consentement rejeté côté base) : même texte.
+  const consentFail = makeSupabase({
+    signUpError: { code: 'check_constraint', message: 'consentement_requis' }
+  });
+  const root2 = new MiniEl('div');
+  renderLogin(root2, { supabase: consentFail, navigate: () => {} });
+  await click(byText(root2, 'BUTTON', ui.login.toSignup));
+  form = walk(root2).find((e) => e.tagName === 'FORM');
+  await type(walk(form).find((e) => e.getAttribute('type') === 'text'), 'Alexandria');
+  await type(walk(form).find((e) => e.getAttribute('type') === 'email'), 'sam@example.com');
+  await type(walk(form).find((e) => e.getAttribute('type') === 'password'), 'motdepasse123');
+  walk(form).find((e) => e.getAttribute('type') === 'checkbox').checked = true;
+  await submitForm(form);
+  if (root2.textContent.includes('consentement_requis')) {
+    fail('inscription : code d\'erreur brut affiché');
+  } else ok('inscription : code d\'erreur brut jamais affiché');
+  if (!byText(root2, 'P', ui.login.signupError)) {
+    fail('même message sobre pour un autre code d\'erreur');
+  } else ok('toute erreur signUp → même message sobre (identique quel que soit le code)');
+
+  // La connexion reste détaillée (mauvais identifiants = feedback utile).
+  const loginFail = makeSupabase();
+  loginFail.auth.signInWithPassword = () =>
+    Promise.resolve({ data: null, error: { code: 'invalid_credentials', message: 'Invalid login credentials' } });
+  const root3 = new MiniEl('div');
+  renderLogin(root3, { supabase: loginFail, navigate: () => {} });
+  form = walk(root3).find((e) => e.tagName === 'FORM');
+  await type(walk(form).find((e) => e.getAttribute('type') === 'email'), 'sam@example.com');
+  await type(walk(form).find((e) => e.getAttribute('type') === 'password'), 'mauvais');
+  await submitForm(form);
+  if (!byText(root3, 'P', ui.login.badCredentials)) {
+    fail('connexion : message « Email ou mot de passe incorrect » absent');
+  } else ok('connexion : feedback spécifique conservé (pas de message d\'inscription)');
+}
+
+console.log('\n== 45. touch_activity : appelé à l\'ouverture avec une session ==');
+{
+  // Ouverture avec session déjà présente : l'appel initial de start() part.
+  const activity = createActivity();
+  const supabase = makeSupabase();
+  const docL = {}; const winL = {};
+  const fakeDoc = {
+    visibilityState: 'visible',
+    addEventListener(type, fn) { (docL[type] ??= []).push(fn); }
+  };
+  const fakeWin = {
+    addEventListener(type, fn) { (winL[type] ??= []).push(fn); }
+  };
+  activity.start({ supabase, hasSession: () => true, doc: fakeDoc, win: fakeWin });
+  if (supabase.rpcs.length !== 1 || supabase.rpcs[0] !== 'touch_activity') {
+    fail(`ouverture avec session : ${JSON.stringify(supabase.rpcs)} au lieu d\'un appel à touch_activity`);
+  } else ok('ouverture avec session : touch_activity appelé une fois');
+
+  // Puis visibilitychange + online dans la même demi-heure : plus rien (30 min).
+  for (const fn of docL.visibilitychange ?? []) fn();
+  for (const fn of winL.online ?? []) fn();
+  if (supabase.rpcs.length !== 1) {
+    fail(`ouverture + retours rapprochés : ${supabase.rpcs.length} appels au lieu d\'1`);
+  } else ok('retours d\'onglet/réseau rapprochés : borné à 1 appel (limite 30 min)');
+
+  // Sans session au moment du start : aucun appel (rappel du contrat).
+  const noSess = createActivity();
+  const sb2 = makeSupabase();
+  noSess.start({
+    supabase: sb2, hasSession: () => false,
+    doc: { visibilityState: 'visible', addEventListener() {} },
+    win: { addEventListener() {} }
+  });
+  if (sb2.rpcs.length) fail(`ouverture sans session : ${sb2.rpcs.length} appel(s) tenté(s)`);
+  else ok('ouverture sans session : aucun appel à touch_activity');
 }
 
 await server.close();
